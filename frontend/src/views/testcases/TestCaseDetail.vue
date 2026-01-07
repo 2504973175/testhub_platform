@@ -38,9 +38,11 @@
         <el-descriptions-item label="用例描述" :span="2">{{ testcase.description || '暂无描述' }}</el-descriptions-item>
         <el-descriptions-item label="前置条件" :span="2">{{ testcase.preconditions || '无' }}</el-descriptions-item>
         <el-descriptions-item label="操作步骤" :span="2">
-          <div class="steps-content">{{ testcase.steps || '无' }}</div>
+          <div class="steps-content" v-html="testcase.steps || '无'"></div>
         </el-descriptions-item>
-        <el-descriptions-item label="预期结果" :span="2">{{ testcase.expected_result }}</el-descriptions-item>
+        <el-descriptions-item label="预期结果" :span="2">
+          <div v-html="testcase.expected_result || '无'"></div>
+        </el-descriptions-item>
       </el-descriptions>
     </div>
   </div>

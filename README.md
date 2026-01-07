@@ -209,7 +209,7 @@ DEBUG=True
 
 # 邮件配置（可选）
 EMAIL_HOST=smtp.163.com
-EMAIL_PORT=587
+EMAIL_PORT=465
 EMAIL_USE_TLS=True
 EMAIL_HOST_USER=your_email@gmail.com
 EMAIL_HOST_PASSWORD=your_email_password
@@ -235,7 +235,13 @@ python manage.py migrate
 python manage.py createsuperuser
 ```
 
-6. **启动服务**
+6. **初始化UI自动化测试定位策略**
+```bash
+# 根目录执行
+python manage.py init_locator_strategies
+```
+
+7**启动服务**
 ```bash
 # 启动 Django 开发服务器
 python manage.py runserver

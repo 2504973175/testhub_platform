@@ -176,6 +176,18 @@ const rules = {
   ]
 }
 
+// 将HTML的<br>标签转换为换行符（用于编辑时显示）
+const convertBrToNewline = (text) => {
+  if (!text) return ''
+  return text.replace(/<br\s*\/?>/gi, '\n')
+}
+
+// 将换行符转换为HTML的<br>标签（用于保存）
+const convertNewlineToBr = (text) => {
+  if (!text) return ''
+  return text.replace(/\n/g, '<br>')
+}
+
 const fetchProjects = async () => {
   try {
     const response = await api.get('/projects/list/')
@@ -224,10 +236,10 @@ const fetchTestCase = async () => {
     form.test_type = testcase.test_type
     form.status = testcase.status
     form.preconditions = testcase.preconditions
-    form.expected_result = testcase.expected_result
-    
-    // 填充操作步骤数据
-    form.steps = testcase.steps || ''
+    form.expected_result = convertBrToNewline(testcase.expected_result || '')
+
+    // 填充操作步骤数据（将<br>转换为换行符）
+    form.steps = convertBrToNewline(testcase.steps || '')
     
     // 填充版本关联数据
     form.version_ids = testcase.versions ? testcase.versions.map(v => v.id) : []
@@ -246,12 +258,19 @@ const fetchTestCase = async () => {
 
 const handleSubmit = async () => {
   if (!formRef.value) return
-  
+
   await formRef.value.validate(async (valid) => {
     if (valid) {
       submitting.value = true
       try {
-        await api.put(`/testcases/${route.params.id}/`, form)
+        // 在提交前将换行符转换回<br>标签
+        const submitData = {
+          ...form,
+          steps: convertNewlineToBr(form.steps || ''),
+          expected_result: convertNewlineToBr(form.expected_result || '')
+        }
+
+        await api.put(`/testcases/${route.params.id}/`, submitData)
         ElMessage.success('测试用例修改成功')
         router.push(`/ai-generation/testcases/${route.params.id}`)
       } catch (error) {

@@ -88,8 +88,8 @@
             <div class="body-cell">{{ testCase.caseId || `TC${String(index + 1).padStart(3, '0')}` }}</div>
             <div class="body-cell">{{ testCase.scenario }}</div>
             <div class="body-cell">{{ testCase.precondition }}</div>
-            <div class="body-cell">{{ testCase.steps }}</div>
-            <div class="body-cell">{{ testCase.expected }}</div>
+            <div class="body-cell text-limit-2">{{ formatTextForList(testCase.steps) }}</div>
+            <div class="body-cell text-limit-2">{{ formatTextForList(testCase.expected) }}</div>
             <div class="body-cell">
               <span class="priority-tag" :class="testCase.priority?.toLowerCase()">{{ testCase.priority || '中' }}</span>
             </div>
@@ -154,11 +154,11 @@
           </div>
           <div class="detail-item">
             <label>操作步骤:</label>
-            <p class="test-steps">{{ selectedCase.steps }}</p>
+            <p class="test-steps" v-html="selectedCase.steps"></p>
           </div>
           <div class="detail-item">
             <label>预期结果:</label>
-            <p>{{ selectedCase.expected }}</p>
+            <p v-html="selectedCase.expected"></p>
           </div>
           <div class="detail-item">
             <label>优先级:</label>
@@ -339,12 +339,19 @@ export default {
     getStatusText(status) {
       const statusMap = {
         'pending': '需求分析中',
-        'generating': '用例编写中', 
+        'generating': '用例编写中',
         'reviewing': '用例评审中',
         'completed': '已完成',
         'failed': '失败'
       }
       return statusMap[status] || status
+    },
+
+    // 格式化列表中的文本，将<br>转换为换行
+    formatTextForList(text) {
+      if (!text) return ''
+      // 将<br>、<br/>、<br />等标签替换为换行符
+      return text.replace(/<br\s*\/?>/gi, '\n')
     },
 
     toggleSelectAll() {
@@ -566,8 +573,8 @@ export default {
             testCase.caseId || `TC${String(index + 1).padStart(3, '0')}`,
             testCase.scenario || '',
             testCase.precondition || '',
-            testCase.steps || '',
-            testCase.expected || '',
+            this.formatTextForList(testCase.steps || ''),
+            this.formatTextForList(testCase.expected || ''),
             testCase.priority || '中'
           ])
         })
@@ -580,11 +587,26 @@ export default {
           { wch: 15 }, // 测试用例编号
           { wch: 30 }, // 测试场景
           { wch: 25 }, // 前置条件
-          { wch: 40 }, // 操作步骤
-          { wch: 30 }, // 预期结果
+          { wch: 50 }, // 操作步骤（增加宽度）
+          { wch: 40 }, // 预期结果（增加宽度）
           { wch: 10 }  // 优先级
         ]
         worksheet['!cols'] = colWidths
+
+        // 为所有单元格添加自动换行样式
+        const range = XLSX.utils.decode_range(worksheet['!ref'])
+        for (let row = range.s.r; row <= range.e.r; row++) {
+          for (let col = range.s.c; col <= range.e.c; col++) {
+            const cellAddress = XLSX.utils.encode_cell({ r: row, c: col })
+            if (!worksheet[cellAddress]) continue
+            worksheet[cellAddress].s = {
+              alignment: {
+                wrapText: true,
+                vertical: 'top'
+              }
+            }
+          }
+        }
 
         // 将工作表添加到工作簿
         XLSX.utils.book_append_sheet(workbook, worksheet, '测试用例')
@@ -776,9 +798,15 @@ export default {
 .header-cell, .body-cell {
   padding: 12px 8px;
   display: flex;
-  align-items: center;
+  align-items: flex-start; /* 改为顶部对齐，避免内容被裁剪 */
   border-right: 1px solid #eee;
   word-break: break-word;
+}
+
+/* 操作步骤和预期结果列的特殊样式 */
+.body-cell.text-limit-2 {
+  align-items: flex-start;
+  overflow: hidden;
 }
 
 .checkbox-cell {
@@ -794,6 +822,19 @@ export default {
   border-radius: 4px;
   font-size: 0.8rem;
   font-weight: bold;
+}
+
+.text-limit-2 {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  white-space: pre-wrap;
+  line-height: 1.6;
+  max-height: 3.6em; /* 2行 × 1.6行高 + 0.4em余量 */
+  min-height: 3.2em; /* 确保有足够空间显示2行 */
+  word-break: break-word;
 }
 
 .priority-tag.low {

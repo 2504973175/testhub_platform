@@ -183,7 +183,7 @@
         <div class="generated-testcases-section">
           <h3>📋 AI编写的测试用例</h3>
           <div class="testcase-content">
-            <pre>{{ generationResult.generated_test_cases }}</pre>
+            <div v-html="generationResult.generated_test_cases"></div>
           </div>
         </div>
 
@@ -199,7 +199,7 @@
         <div v-if="generationResult.final_test_cases" class="final-testcases-section">
           <h3>🎯 最终测试用例</h3>
           <div class="testcase-content">
-            <pre>{{ generationResult.final_test_cases }}</pre>
+            <div v-html="generationResult.final_test_cases"></div>
           </div>
         </div>
 
@@ -481,12 +481,12 @@ export default {
 
         // 过滤掉总结和建议部分，只保留测试用例内容
         const filteredContent = this.filterTestCasesOnly(finalTestCases);
-        
+
         // 尝试解析表格格式的测试用例（参考AutoGenTestCase的做法）
         const tableFormat = this.parseTableFormat(filteredContent);
-        
+
         let worksheetData = [];
-        
+
         if (tableFormat.length > 0) {
           // 如果解析到表格格式，直接使用，但要确保表头正确
           worksheetData = tableFormat;
@@ -507,6 +507,11 @@ export default {
           // 否则尝试解析结构化格式
           worksheetData = this.parseStructuredFormat(filteredContent);
         }
+
+        // 将所有单元格中的<br>标签转换为换行符
+        worksheetData = worksheetData.map(row =>
+          row.map(cell => this.convertBrToNewline(cell))
+        );
 
         // 创建工作表
         const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
@@ -601,27 +606,25 @@ export default {
     // 格式化日期时间
     formatDateTime(dateTimeString) {
       if (!dateTimeString) return '';
-      
-      try {
-        const date = new Date(dateTimeString);
-        return date.toLocaleString('zh-CN', {
-          year: 'numeric',
-          month: '2-digit',
-          day: '2-digit',
-          hour: '2-digit',
-          minute: '2-digit',
-          second: '2-digit'
-        });
-      } catch (error) {
-        console.error('日期格式化失败:', error);
-        return dateTimeString;
-      }
+      const date = new Date(dateTimeString);
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const hours = String(date.getHours()).padStart(2, '0');
+      const minutes = String(date.getMinutes()).padStart(2, '0');
+      return `${year}-${month}-${day} ${hours}:${minutes}`;
+    },
+
+    // 将HTML的<br>标签转换为换行符（用于Excel导出）
+    convertBrToNewline(text) {
+      if (!text) return '';
+      return text.replace(/<br\s*\/?>/gi, '\n');
     },
 
     // 过滤掉总结和建议部分，只保留测试用例内容
     filterTestCasesOnly(content) {
       if (!content) return '';
-      
+
       const lines = content.split('\n');
       const filteredLines = [];
       let inTestCaseSection = true;

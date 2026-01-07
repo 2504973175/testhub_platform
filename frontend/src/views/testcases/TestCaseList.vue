@@ -342,6 +342,12 @@ const getVersionsTooltip = (versions) => {
   return versions.map(v => v.name + (v.is_baseline ? ' (基线)' : '')).join('、')
 }
 
+// 将HTML的<br>标签转换为换行符（用于Excel导出）
+const convertBrToNewline = (text) => {
+  if (!text) return ''
+  return text.replace(/<br\s*\/?>/gi, '\n')
+}
+
 const exportToExcel = async () => {
   try {
     loading.value = true
@@ -383,8 +389,8 @@ const exportToExcel = async () => {
         testcase.project?.name || '',
         versions,
         testcase.preconditions || '',
-        testcase.steps || '',
-        testcase.expected_result || '',
+        convertBrToNewline(testcase.steps || ''),
+        convertBrToNewline(testcase.expected_result || ''),
         getPriorityText(testcase.priority),
         getStatusText(testcase.status),
         getTypeText(testcase.test_type),
