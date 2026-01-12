@@ -19,7 +19,6 @@ from .views import (
     UiScheduledTaskViewSet,
     AIExecutionRecordViewSet,
     AICaseViewSet,
-    UiNotificationConfigViewSet,
     UiNotificationLogViewSet,
     OperationRecordViewSet,
     UiDashboardViewSet
@@ -45,7 +44,6 @@ router.register(r'scheduled-tasks', UiScheduledTaskViewSet)
 router.register(r'ai-execution-records', AIExecutionRecordViewSet)
 router.register(r'ai-cases', AICaseViewSet, basename='ai-cases')
 router.register(r'ai-case-generation', AICaseViewSet, basename='ai-case-generation')
-router.register(r'notification-configs', UiNotificationConfigViewSet)
 router.register(r'notification-logs', UiNotificationLogViewSet)
 router.register(r'operation-records', OperationRecordViewSet)
 

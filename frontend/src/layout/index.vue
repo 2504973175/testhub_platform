@@ -155,7 +155,7 @@
             </el-menu-item>
             <el-menu-item index="/ai-intelligent-mode/execution-records">
               <el-icon><Timer /></el-icon>
-              <span>AI 执行记录</span>
+              <span>AI 测试报告</span>
             </el-menu-item>
 
           </template>
@@ -164,7 +164,7 @@
           <template v-else-if="currentModule === 'configuration'">
             <el-menu-item index="/configuration/ai-model">
               <el-icon><Cpu /></el-icon>
-              <span>AI模型配置</span>
+              <span>AI用例生成模型配置</span>
             </el-menu-item>
             <el-menu-item index="/configuration/ui-env">
               <el-icon><Monitor /></el-icon>
@@ -302,11 +302,11 @@ const breadcrumbTitle = computed(() => {
     // AI 智能模式
     '/ai-intelligent-mode/testing': 'AI 智能测试',
     '/ai-intelligent-mode/cases': 'AI 用例管理',
-    '/ai-intelligent-mode/execution-records': 'AI 执行记录',
+    '/ai-intelligent-mode/execution-records': 'AI 测试报告',
 
     
     // 配置中心
-    '/configuration/ai-model': 'AI模型配置',
+    '/configuration/ai-model': 'AI用例生成模型配置',
     '/configuration/ui-env': 'UI环境配置',
     '/configuration/ai-mode': 'AI智能模式配置',
     '/configuration/scheduled-task': '定时任务配置',
