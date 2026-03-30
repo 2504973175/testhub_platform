@@ -87,10 +87,15 @@
     
     <!-- 文档列表对话框 -->
     <el-dialog title="文档列表" v-model="showDocumentsDialog" width="800px">
-      <el-table :data="documents" border stripe>
+      <el-empty v-if="documents.length === 0" description="暂无文档" />
+      <el-table v-else :data="documents" border stripe>
         <el-table-column prop="title" label="文档标题" />
         <el-table-column prop="file_type" label="文件类型" />
-        <el-table-column prop="file_size" label="文件大小" formatter="formatFileSize" />
+        <el-table-column label="文件大小">
+          <template #default="scope">
+            {{ formatFileSize(scope.row.file_size) }}
+          </template>
+        </el-table-column>
         <el-table-column prop="status" label="处理状态" />
         <el-table-column prop="created_at" label="上传时间" />
         <el-table-column label="操作">
@@ -189,10 +194,15 @@ const handleViewDocuments = async (kb) => {
   currentKnowledgeBase.value = kb
   showDocumentsDialog.value = true
   try {
+    console.log('开始获取文档列表，知识库ID:', kb.id)
     const response = await getDocumentsByKnowledgeBase(kb.id)
+    console.log('获取文档列表响应:', response)
+    console.log('响应数据:', response.data)
     // 确保正确解析后端返回的响应格式
     documents.value = response.data.data || response.data
+    console.log('文档列表:', documents.value)
   } catch (error) {
+    console.error('获取文档列表失败:', error)
     ElMessage.error('获取文档列表失败')
   }
 }

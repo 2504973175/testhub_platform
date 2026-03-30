@@ -137,9 +137,12 @@ class KnowledgeBaseService:
     async def upload_document(knowledge_base_id: int, file: Any, file_name: str, user: Any) -> KnowledgeDocument:
         """上传知识库文档"""
         try:
+            logger.info(f"开始上传文档，知识库ID: {knowledge_base_id}, 文件名: {file_name}")
+            
             # 使用sync_to_async包装同步的数据库操作
             get_knowledge_base = sync_to_async(KnowledgeBase.objects.get)
             knowledge_base = await get_knowledge_base(id=knowledge_base_id)
+            logger.info(f"找到知识库: {knowledge_base.name}, ID: {knowledge_base.id}")
             
             # 确定文件类型
             file_ext = file_name.split('.')[-1].lower()
@@ -151,6 +154,7 @@ class KnowledgeBaseService:
             # 保存文件
             file_path = os.path.join('knowledge_base', unique_filename)
             default_storage.save(file_path, ContentFile(file.read()))
+            logger.info(f"文件已保存到: {file_path}")
             
             # 使用sync_to_async包装同步的数据库操作
             create_document = sync_to_async(KnowledgeDocument.objects.create)
@@ -162,13 +166,14 @@ class KnowledgeBaseService:
                 file_size=file.size,
                 created_by=user
             )
+            logger.info(f"文档记录已创建，文档ID: {document.id}, 知识库ID: {document.knowledge_base_id}")
             
             # 异步处理文档
             asyncio.create_task(KnowledgeBaseService.process_document(document))
             
             return document
         except Exception as e:
-            logger.error(f"上传文档失败: {e}")
+            logger.error(f"上传文档失败: {e}", exc_info=True)
             raise Exception(f"文档上传失败: {str(e)}")
     
     @staticmethod
@@ -223,4 +228,9 @@ class KnowledgeBaseService:
     @staticmethod
     def get_documents_by_knowledge_base(knowledge_base_id: int) -> List[KnowledgeDocument]:
         """获取知识库下的文档列表"""
-        return KnowledgeDocument.objects.filter(knowledge_base_id=knowledge_base_id).order_by('-created_at')
+        logger.info(f"查询知识库 {knowledge_base_id} 的文档列表")
+        documents = KnowledgeDocument.objects.filter(knowledge_base_id=knowledge_base_id).order_by('-created_at')
+        logger.info(f"查询结果: 找到 {len(documents)} 个文档")
+        for doc in documents:
+            logger.info(f"  - 文档ID: {doc.id}, 标题: {doc.title}, 知识库ID: {doc.knowledge_base_id}")
+        return documents
