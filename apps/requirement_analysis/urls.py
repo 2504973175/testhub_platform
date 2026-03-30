@@ -20,6 +20,7 @@ urlpatterns = [
     path('knowledge-bases/', knowledge_base_views.get_knowledge_base_list, name='get_knowledge_base_list'),
     path('knowledge-bases/create/', knowledge_base_views.create_knowledge_base, name='create_knowledge_base'),
     path('knowledge-bases/<int:kb_id>/update/', knowledge_base_views.update_knowledge_base, name='update_knowledge_base'),
+    path('knowledge-bases/<int:kb_id>/delete/', knowledge_base_views.delete_knowledge_base, name='delete_knowledge_base'),
     path('knowledge-bases/<int:kb_id>/documents/', knowledge_base_views.get_documents_by_knowledge_base, name='get_documents_by_knowledge_base'),
     path('knowledge-bases/<int:kb_id>/documents/upload/', knowledge_base_views.upload_document, name='upload_document'),
     path('knowledge-bases/documents/<int:doc_id>/delete/', knowledge_base_views.delete_document, name='delete_document'),
@@ -35,4 +36,12 @@ urlpatterns = [
     path('ai-models/<int:id>/update/', views.update_ai_model, name='update_ai_model'),
     path('ai-models/<int:id>/delete/', views.delete_ai_model, name='delete_ai_model'),
     path('ai-models/<int:id>/test_connection/', views.test_ai_model_connection, name='test_ai_model_connection'),
+    
+    # 提示词配置相关
+    path('prompts/', views.get_prompts, name='get_prompts'),
+    path('prompts/create/', views.create_prompt, name='create_prompt'),
+    path('prompts/<int:id>/', views.get_prompt_detail, name='get_prompt_detail'),
+    path('prompts/<int:id>/update/', views.update_prompt, name='update_prompt'),
+    path('prompts/<int:id>/delete/', views.delete_prompt, name='delete_prompt'),
+    path('prompts/load_defaults/', views.load_default_prompts, name='load_default_prompts'),
 ]

@@ -150,6 +150,11 @@ const routes = [
         path: 'profile',
         name: 'Profile',
         component: () => import('@/views/profile/UserProfile.vue')
+      },
+      {
+        path: 'knowledge-base',
+        name: 'KnowledgeBase',
+        component: () => import('@/views/ai-generation/knowledge-base.vue')
       }
     ]
   },
