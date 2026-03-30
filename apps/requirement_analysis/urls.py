@@ -1,36 +1,38 @@
-from django.urls import path, include
-from rest_framework.routers import DefaultRouter
-from .views import (
-    RequirementDocumentViewSet,
-    RequirementAnalysisViewSet, 
-    BusinessRequirementViewSet,
-    GeneratedTestCaseViewSet,
-    AnalysisTaskViewSet,
-    AIModelConfigViewSet,
-    PromptConfigViewSet,
-    TestCaseGenerationTaskViewSet,
-    upload_and_analyze,
-    analyze_text
-)
+# -*- coding: utf-8 -*-
+"""
+需求分析模块URL配置
+"""
 
-# 创建DRF路由器
-router = DefaultRouter()
-router.register(r'documents', RequirementDocumentViewSet, basename='requirementdocument')
-router.register(r'analyses', RequirementAnalysisViewSet, basename='requirementanalysis')
-router.register(r'requirements', BusinessRequirementViewSet, basename='businessrequirement')
-router.register(r'test-cases', GeneratedTestCaseViewSet, basename='generatedtestcase')
-router.register(r'tasks', AnalysisTaskViewSet, basename='analysistask')
-router.register(r'ai-models', AIModelConfigViewSet, basename='aimodelconfig')
-router.register(r'prompts', PromptConfigViewSet, basename='promptconfig')
-router.register(r'testcase-generation', TestCaseGenerationTaskViewSet, basename='testcasegenerationtask')
-
-app_name = 'requirement_analysis'
+from django.urls import path
+from . import views
+from . import knowledge_base_views
 
 urlpatterns = [
-    # DRF路由
-    path('api/', include(router.urls)),
+    # AI用例生成相关
+    path('ai-cases/', views.get_ai_cases, name='get_ai_cases'),
+    path('ai-cases/create/', views.create_ai_case, name='create_ai_case'),
+    path('ai-cases/<int:id>/', views.get_ai_case_detail, name='get_ai_case_detail'),
+    path('ai-cases/<int:id>/update/', views.update_ai_case, name='update_ai_case'),
+    path('ai-cases/<int:id>/delete/', views.delete_ai_case, name='delete_ai_case'),
+    path('ai-cases/<int:id>/run/', views.run_ai_case, name='run_ai_case'),
     
-    # 特殊API端点
-    path('api/upload-and-analyze/', upload_and_analyze, name='upload-and-analyze'),
-    path('api/analyze-text/', analyze_text, name='analyze-text'),
+    # 知识库相关
+    path('knowledge-bases/', knowledge_base_views.get_knowledge_base_list, name='get_knowledge_base_list'),
+    path('knowledge-bases/create/', knowledge_base_views.create_knowledge_base, name='create_knowledge_base'),
+    path('knowledge-bases/<int:kb_id>/update/', knowledge_base_views.update_knowledge_base, name='update_knowledge_base'),
+    path('knowledge-bases/<int:kb_id>/documents/', knowledge_base_views.get_documents_by_knowledge_base, name='get_documents_by_knowledge_base'),
+    path('knowledge-bases/<int:kb_id>/documents/upload/', knowledge_base_views.upload_document, name='upload_document'),
+    path('knowledge-bases/documents/<int:doc_id>/delete/', knowledge_base_views.delete_document, name='delete_document'),
+    
+    # RAG检索相关
+    path('rag/retrieve/', views.rag_retrieve, name='rag_retrieve'),
+    path('rag/generate-test-cases/', views.rag_generate_test_cases, name='rag_generate_test_cases'),
+    
+    # AI模型配置相关
+    path('ai-models/', views.get_ai_models, name='get_ai_models'),
+    path('ai-models/create/', views.create_ai_model, name='create_ai_model'),
+    path('ai-models/<int:id>/', views.get_ai_model_detail, name='get_ai_model_detail'),
+    path('ai-models/<int:id>/update/', views.update_ai_model, name='update_ai_model'),
+    path('ai-models/<int:id>/delete/', views.delete_ai_model, name='delete_ai_model'),
+    path('ai-models/<int:id>/test_connection/', views.test_ai_model_connection, name='test_ai_model_connection'),
 ]

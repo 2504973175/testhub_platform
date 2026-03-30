@@ -23,6 +23,7 @@
               <el-menu-item index="/ai-generation/requirement-analysis">AI用例生成</el-menu-item>
               <el-menu-item index="/ai-generation/generated-testcases">AI生成用例记录</el-menu-item>
               <el-menu-item index="/ai-generation/prompt-config">提示词配置</el-menu-item>
+              <el-menu-item index="/ai-generation/knowledge-base">知识库管理</el-menu-item>
             </el-sub-menu>
             <el-menu-item index="/ai-generation/projects">
               <el-icon><Folder /></el-icon>
@@ -36,14 +37,7 @@
               <el-icon><Flag /></el-icon>
               <span>版本管理</span>
             </el-menu-item>
-            <el-sub-menu index="reviews">
-              <template #title>
-                <el-icon><Check /></el-icon>
-                <span>评审管理</span>
-              </template>
-              <el-menu-item index="/ai-generation/reviews">评审列表</el-menu-item>
-              <el-menu-item index="/ai-generation/review-templates">评审模板</el-menu-item>
-            </el-sub-menu>
+           
 
             <el-menu-item index="/ai-generation/executions">
               <el-icon><VideoPlay /></el-icon>
@@ -166,22 +160,7 @@
               <el-icon><Cpu /></el-icon>
               <span>AI用例生成模型配置</span>
             </el-menu-item>
-            <el-menu-item index="/configuration/ui-env">
-              <el-icon><Monitor /></el-icon>
-              <span>UI环境配置</span>
-            </el-menu-item>
-            <el-menu-item index="/configuration/ai-mode">
-              <el-icon><MagicStick /></el-icon>
-              <span>AI智能模式配置</span>
-            </el-menu-item>
-            <el-menu-item index="/configuration/scheduled-task">
-              <el-icon><Timer /></el-icon>
-              <span>定时任务配置</span>
-            </el-menu-item>
-            <el-menu-item index="/configuration/dify">
-              <el-icon><ChatDotRound /></el-icon>
-              <span>AI评测师配置</span>
-            </el-menu-item>
+            
           </template>
         </el-menu>
       </el-aside>

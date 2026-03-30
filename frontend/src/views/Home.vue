@@ -15,7 +15,7 @@
           </template>
         </el-dropdown>
       </div>
-      <h1 class="main-title">TestHub 测试平台</h1>
+      <h1 class="main-title">AI测试平台</h1>
       <p class="subtitle">一站式智能化测试解决方案</p>
       
       <div class="cards-container">
@@ -28,48 +28,8 @@
           <p>智能分析需求，自动生成测试用例</p>
         </div>
 
-        <!-- 接口测试 -->
-        <div class="nav-card" @click="handleNavigate('api')" role="button" tabindex="0">
-          <div class="card-icon api-icon">
-            <el-icon><Link /></el-icon>
-          </div>
-          <h3>接口测试</h3>
-          <p>高效的接口自动化测试与管理</p>
-        </div>
-
-        <!-- UI自动化测试 -->
-        <div class="nav-card" @click="handleNavigate('ui')" role="button" tabindex="0">
-          <div class="card-icon ui-icon">
-            <el-icon><Monitor /></el-icon>
-          </div>
-          <h3>UI自动化测试</h3>
-          <p>可视化的Web/App UI自动化测试</p>
-        </div>
-
-        <!-- 数据工厂 -->
-        <div class="nav-card" @click="handleNavigate('data')" role="button" tabindex="0">
-          <div class="card-icon data-icon">
-            <el-icon><DataLine /></el-icon>
-          </div>
-          <h3>数据工厂</h3>
-          <p>灵活的测试数据构造与管理</p>
-        </div>
-        <!-- AI 智能模式 -->
-        <div class="nav-card" @click="handleNavigate('ai-intelligent')" role="button" tabindex="0">
-          <div class="card-icon ai-intelligent-icon">
-            <el-icon><Cpu /></el-icon>
-          </div>
-          <h3>AI 智能模式</h3>
-          <p>基于自然语言的智能化测试执行</p>
-        </div>
-        <!-- AI评测师 -->
-        <div class="nav-card" @click="handleNavigate('assistant')" role="button" tabindex="0">
-          <div class="card-icon assistant-icon">
-            <el-icon><ChatDotRound /></el-icon>
-          </div>
-          <h3>AI评测师</h3>
-          <p>基于评测师知识库，提供专业软件测试问答</p>
-        </div>
+       
+       
         <!-- 配置中心 -->
         <div class="nav-card" @click="handleNavigate('config')" role="button" tabindex="0">
           <div class="card-icon config-icon">
