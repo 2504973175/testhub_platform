@@ -16,6 +16,7 @@ import logging
 import asyncio
 import httpx
 import json
+from asgiref.sync import sync_to_async
 
 from .knowledge_base_models import KnowledgeBase, KnowledgeDocument, KnowledgeEmbedding
 
@@ -136,7 +137,9 @@ class KnowledgeBaseService:
     async def upload_document(knowledge_base_id: int, file: Any, file_name: str, user: Any) -> KnowledgeDocument:
         """上传知识库文档"""
         try:
-            knowledge_base = KnowledgeBase.objects.get(id=knowledge_base_id)
+            # 使用sync_to_async包装同步的数据库操作
+            get_knowledge_base = sync_to_async(KnowledgeBase.objects.get)
+            knowledge_base = await get_knowledge_base(id=knowledge_base_id)
             
             # 确定文件类型
             file_ext = file_name.split('.')[-1].lower()
@@ -149,8 +152,9 @@ class KnowledgeBaseService:
             file_path = os.path.join('knowledge_base', unique_filename)
             default_storage.save(file_path, ContentFile(file.read()))
             
-            # 创建文档记录
-            document = KnowledgeDocument.objects.create(
+            # 使用sync_to_async包装同步的数据库操作
+            create_document = sync_to_async(KnowledgeDocument.objects.create)
+            document = await create_document(
                 knowledge_base=knowledge_base,
                 title=file_name,
                 file_path=file_path,
@@ -171,8 +175,10 @@ class KnowledgeBaseService:
     async def process_document(document: KnowledgeDocument):
         """处理文档"""
         try:
+            # 使用sync_to_async包装同步的数据库操作
+            save_document = sync_to_async(document.save)
             document.status = 'processing'
-            document.save()
+            await save_document()
             
             # 获取文件路径
             file_path = default_storage.path(document.file_path)
@@ -185,8 +191,9 @@ class KnowledgeBaseService:
             embeddings = await EmbeddingService.chunk_and_embed(content)
             
             # 保存向量
+            create_embedding = sync_to_async(KnowledgeEmbedding.objects.create)
             for embedding_data in embeddings:
-                KnowledgeEmbedding.objects.create(
+                await create_embedding(
                     document=document,
                     chunk_text=embedding_data['chunk_text'],
                     chunk_index=embedding_data['chunk_index'],
@@ -194,12 +201,13 @@ class KnowledgeBaseService:
                 )
             
             document.status = 'processed'
-            document.save()
+            await save_document()
             
         except Exception as e:
             logger.error(f"处理文档失败: {e}")
             document.status = 'failed'
-            document.save()
+            save_document = sync_to_async(document.save)
+            await save_document()
             raise Exception(f"文档处理失败: {str(e)}")
     
     @staticmethod

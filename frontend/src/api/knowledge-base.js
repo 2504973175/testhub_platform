@@ -2,7 +2,7 @@
  * 知识库模块API
  */
 
-import request from '@/utils/request'
+import request from '@/utils/api'
 
 // 获取知识库列表
 export function getKnowledgeBases() {
@@ -57,6 +57,14 @@ export function uploadDocument(kbId, file) {
 export function deleteDocument(docId) {
   return request({
     url: `/requirement-analysis/knowledge-bases/documents/${docId}/delete/`,
+    method: 'post'
+  })
+}
+
+// 删除知识库
+export function deleteKnowledgeBase(kbId) {
+  return request({
+    url: `/requirement-analysis/knowledge-bases/${kbId}/delete/`,
     method: 'post'
   })
 }

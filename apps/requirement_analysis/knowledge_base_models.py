@@ -10,6 +10,18 @@ from datetime import datetime
 
 User = get_user_model()
 
+# 生成文档ID
+def generate_document_id():
+    return f'doc_{uuid.uuid4().hex[:8]}'
+
+# 生成向量ID
+def generate_embedding_id():
+    return f'emb_{uuid.uuid4().hex[:8]}'
+
+# 生成查询ID
+def generate_query_id():
+    return f'query_{uuid.uuid4().hex[:8]}'
+
 
 class KnowledgeBase(models.Model):
     """知识库模型"""
@@ -47,7 +59,7 @@ class KnowledgeDocument(models.Model):
         ('failed', '处理失败'),
     ]
     
-    document_id = models.CharField(max_length=50, unique=True, default=lambda: f'doc_{uuid.uuid4().hex[:8]}', verbose_name='文档ID')
+    document_id = models.CharField(max_length=50, unique=True, default=generate_document_id, verbose_name='文档ID')
     knowledge_base = models.ForeignKey(KnowledgeBase, on_delete=models.CASCADE, related_name='documents', verbose_name='所属知识库')
     title = models.CharField(max_length=200, verbose_name='文档标题')
     file_path = models.CharField(max_length=500, verbose_name='文件路径')
@@ -72,7 +84,7 @@ class KnowledgeDocument(models.Model):
 
 class KnowledgeEmbedding(models.Model):
     """知识库向量模型"""
-    embedding_id = models.CharField(max_length=50, unique=True, default=lambda: f'emb_{uuid.uuid4().hex[:8]}', verbose_name='向量ID')
+    embedding_id = models.CharField(max_length=50, unique=True, default=generate_embedding_id, verbose_name='向量ID')
     document = models.ForeignKey(KnowledgeDocument, on_delete=models.CASCADE, related_name='embeddings', verbose_name='所属文档')
     chunk_text = models.TextField(verbose_name='文本片段')
     chunk_index = models.IntegerField(verbose_name='片段索引')
@@ -92,7 +104,7 @@ class KnowledgeEmbedding(models.Model):
 
 class RAGQueryRecord(models.Model):
     """RAG查询记录模型"""
-    query_id = models.CharField(max_length=50, unique=True, default=lambda: f'query_{uuid.uuid4().hex[:8]}', verbose_name='查询ID')
+    query_id = models.CharField(max_length=50, unique=True, default=generate_query_id, verbose_name='查询ID')
     query_text = models.TextField(verbose_name='查询文本')
     knowledge_base = models.ForeignKey(KnowledgeBase, on_delete=models.SET_NULL, null=True, verbose_name='使用的知识库')
     retrieved_documents = models.JSONField(default=list, verbose_name='检索到的文档')

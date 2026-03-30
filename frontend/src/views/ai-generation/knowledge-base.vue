@@ -18,19 +18,23 @@
               <template #header>
                 <div class="kb-header">
                   <span>{{ kb.name }}</span>
-                  <el-switch v-model="kb.is_active" @change="toggleKnowledgeBase(kb)" />
+                  <el-switch v-model="kb.is_active" @change="handleToggleKnowledgeBase(kb)" />
                 </div>
               </template>
               <div class="kb-content">
                 <p class="kb-description">{{ kb.description || '无描述' }}</p>
                 <div class="kb-actions">
-                  <el-button size="small" @click="viewDocuments(kb)">
+                  <el-button size="small" @click="handleViewDocuments(kb)">
                     <el-icon><Document /></el-icon>
                     查看文档
                   </el-button>
-                  <el-button size="small" type="primary" @click="uploadDocument(kb)">
+                  <el-button size="small" type="primary" @click="handleUploadDocument(kb)">
                     <el-icon><Upload /></el-icon>
                     上传文档
+                  </el-button>
+                  <el-button size="small" type="danger" @click="handleDeleteKnowledgeBase(kb)">
+                    <el-icon><Delete /></el-icon>
+                    删除
                   </el-button>
                 </div>
               </div>
@@ -53,7 +57,7 @@
       <template #footer>
         <span class="dialog-footer">
           <el-button @click="showAddKnowledgeBaseDialog = false">取消</el-button>
-          <el-button type="primary" @click="createKnowledgeBase">确定</el-button>
+          <el-button type="primary" @click="handleCreateKnowledgeBase">确定</el-button>
         </span>
       </template>
     </el-dialog>
@@ -76,7 +80,7 @@
       <template #footer>
         <span class="dialog-footer">
           <el-button @click="showUploadDialog = false">取消</el-button>
-          <el-button type="primary" @click="submitUpload">确定上传</el-button>
+          <el-button type="primary" @click="handleSubmitUpload">确定上传</el-button>
         </span>
       </template>
     </el-dialog>
@@ -91,8 +95,8 @@
         <el-table-column prop="created_at" label="上传时间" />
         <el-table-column label="操作">
           <template #default="scope">
-            <el-button size="small" @click="viewDocument(scope.row)">查看</el-button>
-            <el-button size="small" type="danger" @click="deleteDocument(scope.row)">删除</el-button>
+            <el-button size="small" @click="handleViewDocument(scope.row)">查看</el-button>
+            <el-button size="small" type="danger" @click="handleDeleteDocument(scope.row)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -103,7 +107,8 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Plus, Document, Upload } from '@element-plus/icons-vue'
+import { Plus, Document, Upload, Delete } from '@element-plus/icons-vue'
+import { getKnowledgeBases, createKnowledgeBase, updateKnowledgeBase, getDocumentsByKnowledgeBase, uploadDocument, deleteDocument, deleteKnowledgeBase } from '@/api/knowledge-base'
 
 const knowledgeBases = ref([])
 const showAddKnowledgeBaseDialog = ref(false)
@@ -116,39 +121,33 @@ const currentKnowledgeBase = ref(null)
 const documents = ref([])
 
 // 获取知识库列表
-const getKnowledgeBases = async () => {
+const fetchKnowledgeBases = async () => {
   try {
-    // 这里需要替换为实际的API调用
-    // const response = await getKnowledgeBasesAPI()
-    // knowledgeBases.value = response.data
-    knowledgeBases.value = [
-      { id: 1, name: '产品需求知识库', description: '存储产品需求文档', is_active: true },
-      { id: 2, name: '测试用例知识库', description: '存储测试用例模板和规范', is_active: false },
-    ]
+    const response = await getKnowledgeBases()
+    // 确保正确解析后端返回的响应格式
+    knowledgeBases.value = response.data.data || response.data
   } catch (error) {
     ElMessage.error('获取知识库列表失败')
   }
 }
 
 // 新建知识库
-const createKnowledgeBase = async () => {
+const handleCreateKnowledgeBase = async () => {
   try {
-    // 这里需要替换为实际的API调用
-    // await createKnowledgeBaseAPI(newKnowledgeBase.value)
+    await createKnowledgeBase(newKnowledgeBase.value)
     ElMessage.success('知识库创建成功')
     showAddKnowledgeBaseDialog.value = false
     newKnowledgeBase.value = { name: '', description: '' }
-    getKnowledgeBases()
+    fetchKnowledgeBases()
   } catch (error) {
     ElMessage.error('创建知识库失败')
   }
 }
 
 // 切换知识库状态
-const toggleKnowledgeBase = async (kb) => {
+const handleToggleKnowledgeBase = async (kb) => {
   try {
-    // 这里需要替换为实际的API调用
-    // await updateKnowledgeBaseAPI(kb.id, { is_active: kb.is_active })
+    await updateKnowledgeBase(kb.id, { is_active: kb.is_active })
     ElMessage.success(`知识库已${kb.is_active ? '启用' : '禁用'}`)
   } catch (error) {
     kb.is_active = !kb.is_active
@@ -157,7 +156,7 @@ const toggleKnowledgeBase = async (kb) => {
 }
 
 // 上传文档
-const uploadDocument = (kb) => {
+const handleUploadDocument = (kb) => {
   currentKnowledgeBase.value = kb
   showUploadDialog.value = true
 }
@@ -168,30 +167,31 @@ const handleFileChange = (file) => {
 }
 
 // 提交上传
-const submitUpload = async () => {
+const handleSubmitUpload = async () => {
   try {
-    // 这里需要替换为实际的API调用
-    // await uploadDocumentAPI(currentKnowledgeBase.value.id, uploadForm.value.file)
+    if (!currentKnowledgeBase.value || !currentKnowledgeBase.value.id) {
+      ElMessage.error('请先选择一个知识库')
+      return
+    }
+    await uploadDocument(currentKnowledgeBase.value.id, uploadForm.value.file)
     ElMessage.success('文档上传成功')
     showUploadDialog.value = false
     fileList.value = []
+    // 上传成功后刷新文档列表
+    handleViewDocuments(currentKnowledgeBase.value)
   } catch (error) {
     ElMessage.error('文档上传失败')
   }
 }
 
 // 查看文档
-const viewDocuments = async (kb) => {
+const handleViewDocuments = async (kb) => {
   currentKnowledgeBase.value = kb
   showDocumentsDialog.value = true
   try {
-    // 这里需要替换为实际的API调用
-    // const response = await getDocumentsAPI(kb.id)
-    // documents.value = response.data
-    documents.value = [
-      { id: 1, title: '产品需求文档.pdf', file_type: 'pdf', file_size: 1024 * 1024, status: '已处理', created_at: '2024-01-01' },
-      { id: 2, title: '测试用例规范.docx', file_type: 'docx', file_size: 512 * 1024, status: '处理中', created_at: '2024-01-02' },
-    ]
+    const response = await getDocumentsByKnowledgeBase(kb.id)
+    // 确保正确解析后端返回的响应格式
+    documents.value = response.data.data || response.data
   } catch (error) {
     ElMessage.error('获取文档列表失败')
   }
@@ -205,25 +205,38 @@ const formatFileSize = (size) => {
 }
 
 // 查看文档详情
-const viewDocument = (document) => {
+const handleViewDocument = (document) => {
   // 这里可以添加查看文档详情的逻辑
   console.log('查看文档:', document)
 }
 
 // 删除文档
-const deleteDocument = async (document) => {
+const handleDeleteDocument = async (document) => {
   try {
-    // 这里需要替换为实际的API调用
-    // await deleteDocumentAPI(document.id)
+    await deleteDocument(document.id)
     ElMessage.success('文档删除成功')
-    viewDocuments(currentKnowledgeBase.value)
+    handleViewDocuments(currentKnowledgeBase.value)
   } catch (error) {
     ElMessage.error('删除文档失败')
   }
 }
 
+// 删除知识库
+const handleDeleteKnowledgeBase = async (kb) => {
+  try {
+    if (!confirm('确定要删除此知识库吗？删除后所有文档也将被删除。')) {
+      return
+    }
+    await deleteKnowledgeBase(kb.id)
+    ElMessage.success('知识库删除成功')
+    fetchKnowledgeBases()
+  } catch (error) {
+    ElMessage.error('删除知识库失败')
+  }
+}
+
 onMounted(() => {
-  getKnowledgeBases()
+  fetchKnowledgeBases()
 })
 </script>
 

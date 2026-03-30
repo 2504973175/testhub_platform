@@ -449,3 +449,166 @@ def test_ai_model_connection(request, id):
             "message": f"连接测试失败: {str(e)}",
             "response": ""
         }})
+
+
+# 提示词配置相关视图函数
+@login_required
+@require_http_methods(["GET"])
+def get_prompts(request):
+    """获取提示词配置列表"""
+    try:
+        prompts = PromptConfig.objects.all()
+        data = []
+        for prompt in prompts:
+            data.append({
+                "id": prompt.id,
+                "name": prompt.name,
+                "prompt_type": prompt.prompt_type,
+                "prompt_type_display": prompt.get_prompt_type_display(),
+                "content": prompt.content,
+                "is_active": prompt.is_active,
+                "created_by": prompt.created_by.id,
+                "created_by_name": prompt.created_by.username,
+                "created_at": prompt.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+                "updated_at": prompt.updated_at.strftime("%Y-%m-%d %H:%M:%S")
+            })
+        return JsonResponse({"code": 200, "message": "success", "data": data, "count": len(data), "results": data})
+    except Exception as e:
+        logger.error(f"获取提示词配置失败: {e}")
+        return JsonResponse({"code": 500, "message": f"获取提示词配置失败: {str(e)}"})
+
+
+@login_required
+@require_http_methods(["POST"])
+def create_prompt(request):
+    """创建提示词配置"""
+    try:
+        data = json.loads(request.body)
+        name = data.get("name")
+        prompt_type = data.get("prompt_type")
+        content = data.get("content")
+        is_active = data.get("is_active", True)
+        
+        # 如果设置为激活，需要将同类型的其他配置设置为非激活
+        if is_active:
+            PromptConfig.objects.filter(prompt_type=prompt_type).update(is_active=False)
+        
+        prompt = PromptConfig.objects.create(
+            name=name,
+            prompt_type=prompt_type,
+            content=content,
+            is_active=is_active,
+            created_by=request.user
+        )
+        
+        return JsonResponse({"code": 200, "message": "创建提示词配置成功", "data": {
+            "id": prompt.id,
+            "name": prompt.name,
+            "prompt_type": prompt.prompt_type,
+            "prompt_type_display": prompt.get_prompt_type_display(),
+            "content": prompt.content,
+            "is_active": prompt.is_active,
+            "created_by": prompt.created_by.id,
+            "created_by_name": prompt.created_by.username,
+            "created_at": prompt.created_at.strftime("%Y-%m-%d %H:%M:%S")
+        }})
+    except Exception as e:
+        logger.error(f"创建提示词配置失败: {e}")
+        return JsonResponse({"code": 500, "message": f"创建提示词配置失败: {str(e)}"})
+
+
+@login_required
+@require_http_methods(["GET"])
+def get_prompt_detail(request, id):
+    """获取提示词配置详情"""
+    try:
+        prompt = PromptConfig.objects.get(id=id)
+        data = {
+            "id": prompt.id,
+            "name": prompt.name,
+            "prompt_type": prompt.prompt_type,
+            "prompt_type_display": prompt.get_prompt_type_display(),
+            "content": prompt.content,
+            "is_active": prompt.is_active,
+            "created_by": prompt.created_by.id,
+            "created_by_name": prompt.created_by.username,
+            "created_at": prompt.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+            "updated_at": prompt.updated_at.strftime("%Y-%m-%d %H:%M:%S")
+        }
+        return JsonResponse({"code": 200, "message": "success", "data": data})
+    except PromptConfig.DoesNotExist:
+        return JsonResponse({"code": 404, "message": "提示词配置不存在"})
+    except Exception as e:
+        logger.error(f"获取提示词配置详情失败: {e}")
+        return JsonResponse({"code": 500, "message": f"获取提示词配置详情失败: {str(e)}"})
+
+
+@login_required
+@require_http_methods(["PATCH"])
+def update_prompt(request, id):
+    """更新提示词配置"""
+    try:
+        prompt = PromptConfig.objects.get(id=id)
+        data = json.loads(request.body)
+        
+        if "name" in data:
+            prompt.name = data["name"]
+        if "prompt_type" in data:
+            prompt.prompt_type = data["prompt_type"]
+        if "content" in data:
+            prompt.content = data["content"]
+        if "is_active" in data:
+            # 如果设置为激活，需要将同类型的其他配置设置为非激活
+            if data["is_active"]:
+                PromptConfig.objects.filter(prompt_type=prompt.prompt_type).update(is_active=False)
+            prompt.is_active = data["is_active"]
+        
+        prompt.save()
+        
+        return JsonResponse({"code": 200, "message": "更新提示词配置成功", "data": {
+            "id": prompt.id,
+            "name": prompt.name,
+            "prompt_type": prompt.prompt_type,
+            "prompt_type_display": prompt.get_prompt_type_display(),
+            "content": prompt.content,
+            "is_active": prompt.is_active,
+            "created_by": prompt.created_by.id,
+            "created_by_name": prompt.created_by.username,
+            "created_at": prompt.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+            "updated_at": prompt.updated_at.strftime("%Y-%m-%d %H:%M:%S")
+        }})
+    except PromptConfig.DoesNotExist:
+        return JsonResponse({"code": 404, "message": "提示词配置不存在"})
+    except Exception as e:
+        logger.error(f"更新提示词配置失败: {e}")
+        return JsonResponse({"code": 500, "message": f"更新提示词配置失败: {str(e)}"})
+
+
+@login_required
+@require_http_methods(["DELETE"])
+def delete_prompt(request, id):
+    """删除提示词配置"""
+    try:
+        prompt = PromptConfig.objects.get(id=id)
+        prompt.delete()
+        return JsonResponse({"code": 200, "message": "删除提示词配置成功"})
+    except PromptConfig.DoesNotExist:
+        return JsonResponse({"code": 404, "message": "提示词配置不存在"})
+    except Exception as e:
+        logger.error(f"删除提示词配置失败: {e}")
+        return JsonResponse({"code": 500, "message": f"删除提示词配置失败: {str(e)}"})
+
+
+@login_required
+@require_http_methods(["GET"])
+def load_default_prompts(request):
+    """加载默认提示词"""
+    try:
+        default_prompts = {
+            "writer": "你是一位专业的测试用例编写专家，擅长根据需求文档生成全面、准确、可执行的测试用例。\n\n请根据以下需求描述，按照指定的格式生成测试用例：\n\n1. 测试用例应覆盖所有功能点和边界情况\n2. 测试用例应包含：用例编号、用例标题、优先级、前置条件、测试步骤、预期结果\n3. 测试用例应具有可操作性，步骤清晰明了\n4. 测试用例应考虑各种异常情况和边界条件\n\n请严格按照上述要求生成测试用例，确保测试用例的质量和覆盖度。",
+            "reviewer": "你是一位专业的测试用例评审专家，擅长评估测试用例的质量、覆盖度和可执行性。\n\n请评审以下测试用例，从以下几个方面进行评估：\n1. 测试用例是否覆盖了所有功能点和需求\n2. 测试用例是否包含了足够的边界情况和异常场景\n3. 测试用例的步骤是否清晰明了，可操作性强\n4. 测试用例的预期结果是否明确、可验证\n5. 测试用例的优先级设置是否合理\n\n请提供详细的评审意见，指出测试用例的优点和不足，并给出改进建议。"
+        }
+        return JsonResponse({"code": 200, "message": "success", "data": {"defaults": default_prompts}})
+    except Exception as e:
+        logger.error(f"加载默认提示词失败: {e}")
+        return JsonResponse({"code": 500, "message": f"加载默认提示词失败: {str(e)}"})
