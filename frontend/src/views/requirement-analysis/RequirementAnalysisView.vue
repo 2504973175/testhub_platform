@@ -209,7 +209,13 @@
               📊 任务ID: {{ generationResult.task_id }}
             </span>
             <span class="summary-item">
-              ⏱️ 生成时间: {{ formatDateTime(generationResult.completed_at) }}
+              🕐 开始时间: {{ generationResult.started_at || '-' }}
+            </span>
+            <span class="summary-item">
+              🕑 完成时间: {{ generationResult.completed_at || '-' }}
+            </span>
+            <span class="summary-item">
+              ⏱️ 总耗时: {{ generationResult.duration_seconds != null ? generationResult.duration_seconds + ' 秒' : '-' }}
             </span>
           </div>
           <button class="new-generation-btn" @click="resetGeneration">

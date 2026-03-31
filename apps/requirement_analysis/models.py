@@ -346,6 +346,7 @@ class TestCaseGenerationTask(models.Model):
     created_by = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name='创建者')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='更新时间')
+    started_at = models.DateTimeField(null=True, blank=True, verbose_name='开始生成时间')
     completed_at = models.DateTimeField(null=True, blank=True, verbose_name='完成时间')
     is_saved_to_records = models.BooleanField(default=False, verbose_name='是否已保存到记录')
     saved_at = models.DateTimeField(null=True, blank=True, verbose_name='保存到记录时间')

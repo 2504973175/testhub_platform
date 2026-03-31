@@ -90,8 +90,9 @@ def _run_generation_task(task_id, use_writer_model, use_reviewer_model, knowledg
 
         task.status = "generating"
         task.progress = 30
+        task.started_at = timezone.now()
         task.generation_log = (task.generation_log or "") + f"[{timezone.now()}] 开始生成\n"
-        task.save(update_fields=["status", "progress", "generation_log", "updated_at"])
+        task.save(update_fields=["status", "progress", "started_at", "generation_log", "updated_at"])
 
         if use_writer_model:
             generated, rag_info, writer_usage = asyncio.run(
@@ -209,7 +210,9 @@ def _task_to_frontend_payload(task: TestCaseGenerationTask):
         "token_usage": task.token_usage,
         "created_at": task.created_at.strftime("%Y-%m-%d %H:%M:%S") if task.created_at else None,
         "updated_at": task.updated_at.strftime("%Y-%m-%d %H:%M:%S") if task.updated_at else None,
+        "started_at": task.started_at.strftime("%Y-%m-%d %H:%M:%S") if task.started_at else None,
         "completed_at": task.completed_at.strftime("%Y-%m-%d %H:%M:%S") if task.completed_at else None,
+        "duration_seconds": round((task.completed_at - task.started_at).total_seconds()) if task.completed_at and task.started_at else None,
     }
 
 
