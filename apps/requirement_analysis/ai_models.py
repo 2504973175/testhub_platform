@@ -90,9 +90,13 @@ class AIModelService:
         return await AIModelService.call_openai_compatible_api(config, messages)
     
     @staticmethod
-    async def generate_test_cases(task: TestCaseGenerationTask, knowledge_base_id: Optional[int] = None) -> str:
+    async def generate_test_cases(
+        task: TestCaseGenerationTask,
+        knowledge_base_id: Optional[int] = None,
+        custom_prompt: Optional[str] = None
+    ) -> str:
         """生成测试用例"""
-        writer_prompt = task.writer_prompt_config.content
+        writer_prompt = (custom_prompt or "").strip() or task.writer_prompt_config.content
         
         # 如果提供了知识库ID，使用RAG增强查询
         if knowledge_base_id:

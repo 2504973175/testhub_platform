@@ -88,6 +88,59 @@
           </button>
         </div>
       </div>
+      
+      <!-- 向量模型配置 -->
+      <div class="configs-section vector-config-section">
+        <div class="section-header">
+          <h2>📚 向量模型配置</h2>
+        </div>
+        
+        <div class="vector-config-card">
+          <div class="config-header">
+            <div class="config-title">
+              <h3>知识库向量模型</h3>
+              <div class="config-badges">
+                <span class="model-badge" :class="vectorConfig.provider">
+                  {{ vectorConfig.provider_display }}
+                </span>
+                <span class="status-badge" :class="{ active: vectorConfig.is_configured }">
+                  {{ vectorConfig.is_configured ? '已配置' : '未配置' }}
+                </span>
+              </div>
+            </div>
+            <div class="config-actions">
+              <button 
+                class="test-btn" 
+                @click="testVectorConnection()"
+                :disabled="isTestingVectorConnection">
+                <span v-if="isTestingVectorConnection">🔄</span>
+                <span v-else>🔗</span>
+                测试连接
+              </button>
+              <button class="edit-btn" @click="openVectorConfigModal()">✏️</button>
+            </div>
+          </div>
+          
+          <div class="config-details">
+            <div class="detail-item">
+              <label>模型名称:</label>
+              <span>{{ vectorConfig.model || '未配置' }}</span>
+            </div>
+            <div class="detail-item">
+              <label>向量维度:</label>
+              <span>{{ vectorConfig.dimension || '1536' }}</span>
+            </div>
+            <div class="detail-item">
+              <label>API Base URL:</label>
+              <span>{{ vectorConfig.api_base || '默认' }}</span>
+            </div>
+            <div class="detail-item">
+              <label>API Key:</label>
+              <span>{{ vectorConfig.api_key || '未配置' }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- 添加/编辑配置弹窗 -->
@@ -268,6 +321,125 @@
         </div>
       </div>
     </div>
+    
+    <!-- 向量模型配置弹窗 -->
+    <div v-if="showVectorConfigModal" class="config-modal" @click="closeVectorConfigModal">
+      <div class="modal-content" @click.stop>
+        <div class="modal-header">
+          <h3>配置向量模型</h3>
+          <button class="close-btn" @click="closeVectorConfigModal" type="button">×</button>
+        </div>
+        <div class="modal-body">
+          <form @submit.prevent="saveVectorConfig">
+            <div class="form-group">
+              <label>提供商 <span class="required">*</span></label>
+              <select 
+                v-model="vectorConfigForm.provider" 
+                class="form-select"
+                required
+                @change="onVectorProviderChange">
+                <option value="">请选择提供商</option>
+                <option value="openai">OpenAI</option>
+                <option value="azure">Azure OpenAI</option>
+                <option value="local">本地模型</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label>模型名称 <span class="required">*</span></label>
+              <input 
+                v-model="vectorConfigForm.model" 
+                type="text" 
+                class="form-input"
+                placeholder="例如：text-embedding-ada-002"
+                required>
+              <small class="form-hint">
+                OpenAI推荐：text-embedding-ada-002, text-embedding-3-small, text-embedding-3-large
+              </small>
+            </div>
+
+            <div class="form-group">
+              <label>API Key <span class="required">*</span></label>
+              <input 
+                v-model="vectorConfigForm.api_key" 
+                type="password" 
+                class="form-input"
+                :placeholder="vectorConfigForm.isEditing ? '不修改请保持原值不变，填写新值则更新' : '输入您的API Key'"
+                :required="!vectorConfigForm.isEditing">
+              <small v-if="vectorConfigForm.isEditing && vectorConfigForm.api_key && vectorConfigForm.api_key.includes('*')" class="form-hint">
+                当前显示的是掩码格式，如需修改请输入新的API Key
+              </small>
+            </div>
+
+            <div class="form-group">
+              <label>API Base URL</label>
+              <input 
+                v-model="vectorConfigForm.api_base" 
+                type="url" 
+                class="form-input"
+                placeholder="例如：https://api.openai.com/v1">
+              <small class="form-hint">
+                可选，留空将使用默认地址。Azure需填写完整的Endpoint地址
+              </small>
+            </div>
+
+            <div class="form-group">
+              <label>向量维度 <span class="required">*</span></label>
+              <input 
+                v-model.number="vectorConfigForm.dimension" 
+                type="number" 
+                min="1"
+                class="form-input"
+                placeholder="1536"
+                required>
+              <small class="form-hint">
+                OpenAI text-embedding-ada-002 为 1536 维，text-embedding-3-large 为 3072 维
+              </small>
+            </div>
+
+            <div class="modal-actions">
+              <button type="button" class="cancel-btn" @click="closeVectorConfigModal">取消</button>
+              <button 
+                type="submit" 
+                class="confirm-btn"
+                :disabled="isSavingVectorConfig">
+                <span v-if="isSavingVectorConfig">🔄 保存中...</span>
+                <span v-else>💾 保存配置</span>
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+    
+    <!-- 向量模型连接测试结果弹窗 -->
+    <div v-if="showVectorTestResult" class="test-result-modal" @click="closeVectorTestResult">
+      <div class="modal-content" @click.stop>
+        <div class="modal-header">
+          <h3>向量模型连接测试结果</h3>
+          <button class="close-btn" @click="closeVectorTestResult">×</button>
+        </div>
+        <div class="modal-body">
+          <div class="test-result" :class="{ success: vectorTestResult.success, error: !vectorTestResult.success }">
+            <div class="result-icon">
+              {{ vectorTestResult.success ? '✅' : '❌' }}
+            </div>
+            <div class="result-content">
+              <h4>{{ vectorTestResult.success ? '连接成功' : '连接失败' }}</h4>
+              <p>{{ vectorTestResult.message }}</p>
+              <div v-if="vectorTestResult.data" class="api-response">
+                <label>提供商:</label>
+                <p>{{ vectorTestResult.data.provider }}</p>
+                <label>向量维度:</label>
+                <p>{{ vectorTestResult.data.dimension }}</p>
+                <label>向量示例:</label>
+                <p>{{ vectorTestResult.data.sample?.join(', ') }}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -311,6 +483,39 @@ export default {
         success: false,
         message: '',
         response: ''
+      },
+      // 向量模型配置
+      vectorConfig: {
+        provider: 'openai',
+        provider_display: 'OpenAI',
+        model: 'text-embedding-ada-002',
+        api_key: '',
+        api_base: '',
+        dimension: 1536,
+        is_configured: false
+      },
+      vectorConfigForm: {
+        provider: 'openai',
+        model: 'text-embedding-ada-002',
+        api_key: '',
+        api_base: '',
+        dimension: 1536,
+        isEditing: false
+      },
+      showVectorConfigModal: false,
+      showVectorTestResult: false,
+      isSavingVectorConfig: false,
+      isTestingVectorConnection: false,
+      vectorTestResult: {
+        success: false,
+        message: '',
+        data: null
+      },
+      // 向量模型提供商与显示名称的映射
+      vectorProviderDisplayMap: {
+        openai: 'OpenAI',
+        azure: 'Azure OpenAI',
+        local: '本地模型'
       }
     }
   },
@@ -348,6 +553,7 @@ export default {
     this.initializeComponent()
     
     this.loadConfigs()
+    this.loadVectorConfig()
   },
 
   methods: {
@@ -529,11 +735,11 @@ export default {
           }
           
           console.log('Updating with data:', updateData)
-          await api.patch(`/api/requirement-analysis/ai-models/${this.editingConfigId}/`, updateData)
+          await api.patch(`/requirement-analysis/ai-models/${this.editingConfigId}/`, updateData)
           ElMessage.success('配置更新成功')
         } else {
           console.log('Creating with data:', this.configForm)
-          await api.post('/api/requirement-analysis/ai-models/', this.configForm)
+          await api.post('/requirement-analysis/ai-models/', this.configForm)
           ElMessage.success('配置添加成功')
         }
         
@@ -591,7 +797,7 @@ export default {
       }
 
       try {
-        await api.delete(`/api/requirement-analysis/ai-models/${configId}/`)
+        await api.delete(`/requirement-analysis/ai-models/${configId}/`)
         ElMessage.success('配置删除成功')
         this.loadConfigs()
       } catch (error) {
@@ -605,7 +811,7 @@ export default {
       this.testingConfigId = config.id
 
       try {
-        const response = await api.post(`/api/requirement-analysis/ai-models/${config.id}/test_connection/`)
+        const response = await api.post(`/requirement-analysis/ai-models/${config.id}/test_connection/`)
         this.testResult = response.data
         this.showTestResult = true
       } catch (error) {
@@ -668,6 +874,144 @@ export default {
         hour: '2-digit',
         minute: '2-digit'
       })
+    },
+
+    // 向量模型配置相关方法
+    async loadVectorConfig() {
+      try {
+        const response = await api.get('/requirement-analysis/vector-model-config/')
+        if (response.data && response.data.code === 200) {
+          const data = response.data.data
+          this.vectorConfig = {
+            provider: data.provider,
+            provider_display: this.vectorProviderDisplayMap[data.provider] || data.provider,
+            model: data.model,
+            api_key: data.api_key,
+            api_base: data.api_base,
+            dimension: data.dimension,
+            is_configured: !!data.api_key
+          }
+        }
+      } catch (error) {
+        console.error('加载向量模型配置失败:', error)
+        ElMessage.error('加载向量模型配置失败: ' + (error.response?.data?.message || error.message))
+      }
+    },
+
+    onVectorProviderChange(provider) {
+      // 根据提供商自动填充默认模型
+      if (provider === 'openai') {
+        this.vectorConfigForm.model = 'text-embedding-ada-002'
+        this.vectorConfigForm.dimension = 1536
+      } else if (provider === 'azure') {
+        this.vectorConfigForm.model = 'text-embedding-ada-002'
+        this.vectorConfigForm.dimension = 1536
+      } else if (provider === 'local') {
+        this.vectorConfigForm.model = 'local-embedding-model'
+        this.vectorConfigForm.dimension = 768
+      }
+    },
+
+    openVectorConfigModal() {
+      this.vectorConfigForm = {
+        provider: this.vectorConfig.provider || 'openai',
+        model: this.vectorConfig.model || 'text-embedding-ada-002',
+        api_key: this.vectorConfig.api_key || '',
+        api_base: this.vectorConfig.api_base || '',
+        dimension: this.vectorConfig.dimension || 1536,
+        isEditing: !!this.vectorConfig.api_key
+      }
+      this.showVectorConfigModal = true
+    },
+
+    closeVectorConfigModal() {
+      this.showVectorConfigModal = false
+      this.vectorConfigForm = {
+        provider: 'openai',
+        model: 'text-embedding-ada-002',
+        api_key: '',
+        api_base: '',
+        dimension: 1536,
+        isEditing: false
+      }
+    },
+
+    async saveVectorConfig() {
+      // 验证必填字段
+      const requiredFields = [
+        { name: 'provider', value: this.vectorConfigForm.provider },
+        { name: 'model', value: this.vectorConfigForm.model },
+        { name: 'api_key', value: this.vectorConfigForm.api_key }
+      ]
+      
+      const emptyFields = requiredFields.filter(field => !field.value || field.value.trim() === '')
+      
+      if (emptyFields.length > 0) {
+        ElMessage.error(`请填写以下必填字段: ${emptyFields.map(f => f.name).join(', ')}`)
+        return
+      }
+
+      this.isSavingVectorConfig = true
+      
+      try {
+        const response = await api.post('/requirement-analysis/vector-model-config/update/', {
+          provider: this.vectorConfigForm.provider,
+          model: this.vectorConfigForm.model,
+          api_key: this.vectorConfigForm.api_key,
+          api_base: this.vectorConfigForm.api_base,
+          dimension: this.vectorConfigForm.dimension
+        })
+        
+        if (response.data && response.data.code === 200) {
+          ElMessage.success('向量模型配置保存成功')
+          this.closeVectorConfigModal()
+          await this.loadVectorConfig()
+        } else {
+          ElMessage.error(response.data?.message || '保存失败')
+        }
+      } catch (error) {
+        console.error('保存向量模型配置失败:', error)
+        ElMessage.error('保存失败: ' + (error.response?.data?.message || error.message))
+      } finally {
+        this.isSavingVectorConfig = false
+      }
+    },
+
+    async testVectorConnection() {
+      this.isTestingVectorConnection = true
+      
+      try {
+        const response = await api.post('/requirement-analysis/vector-model-config/test/')
+        
+        if (response.data && response.data.code === 200) {
+          this.vectorTestResult = {
+            success: true,
+            message: response.data.message,
+            data: response.data.data
+          }
+        } else {
+          this.vectorTestResult = {
+            success: false,
+            message: response.data?.message || '连接测试失败',
+            data: null
+          }
+        }
+        this.showVectorTestResult = true
+      } catch (error) {
+        console.error('测试向量模型连接失败:', error)
+        this.vectorTestResult = {
+          success: false,
+          message: error.response?.data?.message || error.message,
+          data: null
+        }
+        this.showVectorTestResult = true
+      } finally {
+        this.isTestingVectorConnection = false
+      }
+    },
+
+    closeVectorTestResult() {
+      this.showVectorTestResult = false
     }
   }
 }
@@ -1089,6 +1433,40 @@ export default {
   margin: 0;
   color: #666;
   line-height: 1.5;
+}
+
+/* 向量模型配置样式 */
+.vector-config-section {
+  margin-top: 40px;
+}
+
+.vector-config-card {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e1e8ed;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.vector-config-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 15px rgba(0, 0, 0, 0.15);
+}
+
+.model-badge.openai {
+  background: #e3f2fd;
+  color: #1976d2;
+}
+
+.model-badge.azure {
+  background: #e8eaf6;
+  color: #3f51b5;
+}
+
+.model-badge.local {
+  background: #f3e5f5;
+  color: #7b1fa2;
 }
 
 @media (max-width: 768px) {

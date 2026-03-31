@@ -194,3 +194,79 @@ def delete_knowledge_base(request, kb_id):
     except Exception as e:
         logger.error(f"删除知识库失败: {e}")
         return JsonResponse({"code": 500, "message": f"删除知识库失败: {str(e)}"})
+
+
+@login_required
+@require_http_methods(["POST"])
+def upload_document_direct(request):
+    """直接上传文档（不关联特定知识库）"""
+    try:
+        logger.info("开始直接上传文档")
+        if "file" not in request.FILES:
+            logger.error("没有选择文件")
+            return JsonResponse({"code": 400, "message": "请选择文件"})
+
+        file = request.FILES["file"]
+        file_name = file.name
+
+        # 获取其他表单数据
+        title = request.POST.get("title", file_name)
+        project_id = request.POST.get("project")
+
+        logger.info(f"文件名: {file_name}, 标题: {title}, 项目ID: {project_id}")
+
+        # 这里直接创建需求文档记录
+        from .models import RequirementDocument
+
+        document = RequirementDocument.objects.create(
+            title=title,
+            file=file,
+            document_type=file_name.split('.')[-1].lower(),
+            uploaded_by=request.user,
+            project_id=project_id if project_id else None
+        )
+
+        logger.info(f"文档创建成功，ID: {document.id}")
+
+        return JsonResponse({
+            "code": 200,
+            "message": "success",
+            "data": {
+                "id": document.id,
+                "title": document.title
+            }
+        })
+    except Exception as e:
+        logger.error(f"直接上传文档失败: {e}", exc_info=True)
+        return JsonResponse({"code": 500, "message": f"上传文档失败: {str(e)}"})
+
+
+@login_required
+@require_http_methods(["GET"])
+def extract_document_text(request, doc_id):
+    """提取文档文本内容"""
+    try:
+        logger.info(f"开始提取文档 {doc_id} 的文本内容")
+        
+        from .models import RequirementDocument
+        
+        document = RequirementDocument.objects.get(id=doc_id)
+        
+        # 这里简化处理，实际应该调用文档解析服务
+        # 暂时返回一个示例文本
+        extracted_text = f"这是文档 '{document.title}' 的示例提取内容。实际应该调用文档解析服务来提取真实内容。"
+        
+        logger.info(f"文档文本提取成功，长度: {len(extracted_text)}")
+        
+        return JsonResponse({
+            "code": 200,
+            "message": "success",
+            "data": {
+                "extracted_text": extracted_text
+            }
+        })
+    except RequirementDocument.DoesNotExist:
+        return JsonResponse({"code": 404, "message": "文档不存在"})
+    except Exception as e:
+        logger.error(f"提取文档文本失败: {e}")
+        return JsonResponse({"code": 500, "message": f"提取文档文本失败: {str(e)}"})

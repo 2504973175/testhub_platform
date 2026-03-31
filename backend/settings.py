@@ -320,6 +320,15 @@ SIMPLEUI_STATIC_OFFLINE = True
 # True或None 默认显示加载遮罩层，指定为False 不显示遮罩层。默认显示
 SIMPLEUI_LOADING = True
 # 设置菜单icon，参考https://element.eleme.cn/#/zh-CN/component/icon
+# 向量模型配置
+VECTOR_MODEL_CONFIG = {
+    'PROVIDER': config('VECTOR_MODEL_PROVIDER', default='openai'),  # openai, azure, local
+    'MODEL': config('VECTOR_MODEL', default='text-embedding-ada-002'),
+    'API_KEY': config('VECTOR_MODEL_API_KEY', default=''),
+    'API_BASE': config('VECTOR_MODEL_API_BASE', default=''),
+    'DIMENSION': config('VECTOR_DIMENSION', default=1536, cast=int),
+}
+
 SIMPLEUI_ICON = {
     # 一级菜单项
     '测试执行管理': 'el-icon-s-tools',
