@@ -96,7 +96,14 @@
             {{ formatFileSize(scope.row.file_size) }}
           </template>
         </el-table-column>
-        <el-table-column prop="status" label="处理状态" />
+        <el-table-column label="处理状态" width="120">
+          <template #default="scope">
+            <el-tag :type="getStatusTagType(scope.row.status)">
+              {{ scope.row.status_display || scope.row.status }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="embedding_count" label="切分块数" width="100" />
         <el-table-column prop="created_at" label="上传时间" />
         <el-table-column label="操作">
           <template #default="scope">
@@ -106,11 +113,34 @@
         </el-table-column>
       </el-table>
     </el-dialog>
+
+    <!-- 文档详情对话框 -->
+    <el-dialog title="文档详情" v-model="showDocumentDetailDialog" width="600px">
+      <div v-if="selectedDocument">
+        <el-descriptions :column="1" border>
+          <el-descriptions-item label="文档标题">{{ selectedDocument.title }}</el-descriptions-item>
+          <el-descriptions-item label="文件类型">{{ selectedDocument.file_type }}</el-descriptions-item>
+          <el-descriptions-item label="处理状态">
+            <el-tag :type="getStatusTagType(selectedDocument.status)">
+              {{ selectedDocument.status_display || selectedDocument.status }}
+            </el-tag>
+          </el-descriptions-item>
+          <el-descriptions-item label="切分块数">{{ selectedDocument.embedding_count || 0 }}</el-descriptions-item>
+          <el-descriptions-item label="文件大小">{{ formatFileSize(selectedDocument.file_size || 0) }}</el-descriptions-item>
+          <el-descriptions-item label="上传时间">{{ selectedDocument.created_at }}</el-descriptions-item>
+        </el-descriptions>
+      </div>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button type="primary" @click="showDocumentDetailDialog = false">关闭</el-button>
+        </span>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onBeforeUnmount, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Plus, Document, Upload, Delete } from '@element-plus/icons-vue'
 import { getKnowledgeBases, createKnowledgeBase, updateKnowledgeBase, getDocumentsByKnowledgeBase, uploadDocument, deleteDocument, deleteKnowledgeBase } from '@/api/knowledge-base'
@@ -124,6 +154,9 @@ const uploadForm = ref({ file: null })
 const fileList = ref([])
 const currentKnowledgeBase = ref(null)
 const documents = ref([])
+const refreshTimer = ref(null)
+const showDocumentDetailDialog = ref(false)
+const selectedDocument = ref(null)
 
 // 获取知识库列表
 const fetchKnowledgeBases = async () => {
@@ -201,11 +234,39 @@ const handleViewDocuments = async (kb) => {
     // 确保正确解析后端返回的响应格式
     documents.value = response.data.data || response.data
     console.log('文档列表:', documents.value)
+    scheduleAutoRefresh()
   } catch (error) {
     console.error('获取文档列表失败:', error)
     ElMessage.error('获取文档列表失败')
   }
 }
+
+const scheduleAutoRefresh = () => {
+  if (refreshTimer.value) {
+    clearTimeout(refreshTimer.value)
+    refreshTimer.value = null
+  }
+  const hasPending = documents.value.some(d => ['uploaded', 'processing'].includes(d.status))
+  if (showDocumentsDialog.value && currentKnowledgeBase.value && hasPending) {
+    refreshTimer.value = setTimeout(() => {
+      handleViewDocuments(currentKnowledgeBase.value)
+    }, 3000)
+  }
+}
+
+const getStatusTagType = (status) => {
+  if (status === 'processed') return 'success'
+  if (status === 'processing') return 'warning'
+  if (status === 'failed') return 'danger'
+  return 'info'
+}
+
+watch(showDocumentsDialog, (visible) => {
+  if (!visible && refreshTimer.value) {
+    clearTimeout(refreshTimer.value)
+    refreshTimer.value = null
+  }
+})
 
 // 格式化文件大小
 const formatFileSize = (size) => {
@@ -216,8 +277,8 @@ const formatFileSize = (size) => {
 
 // 查看文档详情
 const handleViewDocument = (document) => {
-  // 这里可以添加查看文档详情的逻辑
-  console.log('查看文档:', document)
+  selectedDocument.value = document
+  showDocumentDetailDialog.value = true
 }
 
 // 删除文档
@@ -247,6 +308,13 @@ const handleDeleteKnowledgeBase = async (kb) => {
 
 onMounted(() => {
   fetchKnowledgeBases()
+})
+
+onBeforeUnmount(() => {
+  if (refreshTimer.value) {
+    clearTimeout(refreshTimer.value)
+    refreshTimer.value = null
+  }
 })
 </script>
 
