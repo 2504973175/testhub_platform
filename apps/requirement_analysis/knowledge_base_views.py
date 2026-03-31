@@ -275,3 +275,107 @@ def extract_document_text(request, doc_id):
     except Exception as e:
         logger.error(f"提取文档文本失败: {e}")
         return JsonResponse({"code": 500, "message": f"提取文档文本失败: {str(e)}"})
+
+
+# -------------------------------------------------------
+# 文件夹管理接口
+# -------------------------------------------------------
+
+@login_required
+@require_http_methods(["GET"])
+def get_folders(request, kb_id):
+    """获取知识库下的所有文件夹"""
+    try:
+        folders = (
+            KnowledgeDocument.objects
+            .filter(knowledge_base_id=kb_id)
+            .exclude(folder='')
+            .values_list('folder', flat=True)
+            .distinct()
+            .order_by('folder')
+        )
+        return JsonResponse({"code": 200, "data": list(folders)})
+    except Exception as e:
+        logger.error(f"获取文件夹列表失败: {e}")
+        return JsonResponse({"code": 500, "message": str(e)})
+
+
+@login_required
+@require_http_methods(["POST"])
+def create_folder(request, kb_id):
+    """创建文件夹（通过名称，不需要实体记录）"""
+    try:
+        # 确认知识库存在
+        KnowledgeBase.objects.get(id=kb_id)
+        data = json.loads(request.body)
+        folder_name = (data.get("name") or "").strip()
+        if not folder_name:
+            return JsonResponse({"code": 400, "message": "文件夹名称不能为空"})
+        return JsonResponse({"code": 200, "data": {"name": folder_name}})
+    except KnowledgeBase.DoesNotExist:
+        return JsonResponse({"code": 404, "message": "知识库不存在"})
+    except Exception as e:
+        logger.error(f"创建文件夹失败: {e}")
+        return JsonResponse({"code": 500, "message": str(e)})
+
+
+@login_required
+@require_http_methods(["GET"])
+def get_documents_by_folder(request, kb_id):
+    """获取指定文件夹下的文档列表，folder='' 表示根目录"""
+    try:
+        from django.db.models import Count
+        folder = request.GET.get("folder", "")
+        qs = KnowledgeDocument.objects.filter(
+            knowledge_base_id=kb_id, folder=folder
+        ).annotate(embedding_count=Count('embeddings'))
+        data = [
+            {
+                "id": doc.id,
+                "title": doc.title,
+                "file_type": doc.file_type,
+                "file_size": doc.file_size,
+                "status": doc.status,
+                "status_display": doc.get_status_display(),
+                "embedding_count": getattr(doc, "embedding_count", 0),
+                "folder": doc.folder,
+                "created_at": doc.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+            }
+            for doc in qs
+        ]
+        return JsonResponse({"code": 200, "data": data})
+    except Exception as e:
+        logger.error(f"获取文件夹文档失败: {e}")
+        return JsonResponse({"code": 500, "message": str(e)})
+
+
+@login_required
+@require_http_methods(["POST"])
+def upload_document_to_folder(request, kb_id):
+    """上传文档到指定文件夹"""
+    @async_to_sync
+    async def _upload():
+        try:
+            if "file" not in request.FILES:
+                return JsonResponse({"code": 400, "message": "请选择文件"})
+            file = request.FILES["file"]
+            folder = request.POST.get("folder", "")
+            document = await KnowledgeBaseService.upload_document(kb_id, file, file.name, request.user)
+            # 更新 folder 字段
+            from asgiref.sync import sync_to_async
+            await sync_to_async(KnowledgeDocument.objects.filter(id=document.id).update)(folder=folder)
+            return JsonResponse({
+                "code": 200,
+                "data": {
+                    "id": document.id,
+                    "title": document.title,
+                    "file_type": document.file_type,
+                    "file_size": document.file_size,
+                    "status": document.status,
+                    "folder": folder,
+                }
+            })
+        except Exception as e:
+            logger.error(f"上传文档到文件夹失败: {e}", exc_info=True)
+            return JsonResponse({"code": 500, "message": str(e)})
+    return _upload()
