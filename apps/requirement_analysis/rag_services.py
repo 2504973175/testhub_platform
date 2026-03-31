@@ -69,6 +69,17 @@ class RAGService:
             raise Exception(f"RAG检索失败: {str(e)}")
     
     @staticmethod
+    async def augment_query_with_rag_chunks(query: str, relevant_chunks: List[Dict[str, Any]]) -> str:
+        """使用已检索的 chunks 增强查询"""
+        if not relevant_chunks:
+            return query
+        augmented = "请根据以下知识库内容和用户需求生成测试用例：\n\n知识库内容：\n"
+        for i, chunk in enumerate(relevant_chunks):
+            augmented += f"【文档{i+1}】{chunk['document_title']}\n{chunk['chunk_text']}\n\n"
+        augmented += f"用户需求：{query}\n"
+        return augmented
+
+    @staticmethod
     async def augment_query_with_rag(query: str, knowledge_base_id: int, top_k: int = 5) -> str:
         """使用RAG增强查询"""
         try:
