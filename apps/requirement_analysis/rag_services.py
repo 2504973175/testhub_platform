@@ -8,6 +8,7 @@ from typing import List, Dict, Any, Optional
 import logging
 import asyncio
 from sklearn.metrics.pairwise import cosine_similarity
+from asgiref.sync import sync_to_async
 
 from .knowledge_base_models import KnowledgeBase, KnowledgeDocument, KnowledgeEmbedding, RAGQueryRecord
 from .knowledge_base_services import EmbeddingService
@@ -26,12 +27,14 @@ class RAGService:
             query_embedding = await EmbeddingService.get_embedding(query)
             
             # 获取知识库中的所有向量
-            embeddings = KnowledgeEmbedding.objects.filter(
-                document__knowledge_base_id=knowledge_base_id,
-                document__status='processed'
-            ).select_related('document')
+            embeddings = await sync_to_async(list)(
+                KnowledgeEmbedding.objects.filter(
+                    document__knowledge_base_id=knowledge_base_id,
+                    document__status='processed'
+                ).select_related('document')
+            )
             
-            if not embeddings:
+            if len(embeddings) == 0:
                 return []
             
             # 计算相似度
@@ -94,7 +97,7 @@ class RAGService:
     async def save_query_record(query: str, knowledge_base_id: int, relevant_chunks: List[Dict[str, Any]], user: Any) -> RAGQueryRecord:
         """保存查询记录"""
         try:
-            query_record = RAGQueryRecord.objects.create(
+            query_record = await sync_to_async(RAGQueryRecord.objects.create)(
                 query_text=query,
                 knowledge_base_id=knowledge_base_id,
                 retrieved_chunks=relevant_chunks,

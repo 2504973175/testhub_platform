@@ -40,6 +40,25 @@
               </select>
             </div>
 
+            <div class="form-group">
+              <label>知识库（可选，用于RAG增强）</label>
+              <select v-model="manualInput.selectedKnowledgeBase" class="form-select">
+                <option value="">不使用知识库</option>
+                <option v-for="kb in knowledgeBases" :key="kb.id" :value="kb.id">
+                  {{ kb.name }}
+                </option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label>自定义提示词（可选）</label>
+              <textarea
+                v-model="manualInput.customPrompt"
+                class="form-textarea"
+                rows="4"
+                placeholder="可输入你自己的提示词，作为本次生成的系统提示词使用"></textarea>
+            </div>
+
             <button 
               class="generate-manual-btn" 
               @click="generateFromManualInput"
@@ -111,6 +130,25 @@
                   {{ project.name }}
                 </option>
               </select>
+            </div>
+
+            <div class="form-group">
+              <label>知识库（可选，用于RAG增强）</label>
+              <select v-model="selectedKnowledgeBase" class="form-select">
+                <option value="">不使用知识库</option>
+                <option v-for="kb in knowledgeBases" :key="kb.id" :value="kb.id">
+                  {{ kb.name }}
+                </option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label>自定义提示词（可选）</label>
+              <textarea
+                v-model="customPrompt"
+                class="form-textarea"
+                rows="4"
+                placeholder="可输入你自己的提示词，作为本次生成的系统提示词使用"></textarea>
             </div>
 
             <button 
@@ -230,14 +268,19 @@ export default {
       manualInput: {
         title: '',
         description: '',
-        selectedProject: ''
+        selectedProject: '',
+        selectedKnowledgeBase: '',
+        customPrompt: ''
       },
       
       // 文件上传
       selectedFile: null,
       documentTitle: '',
       selectedProject: '',
+      selectedKnowledgeBase: '',
+      customPrompt: '',
       projects: [],
+      knowledgeBases: [],
       isDragOver: false,
       
       // 生成状态
@@ -263,6 +306,7 @@ export default {
   
   mounted() {
     this.loadProjects()
+    this.loadKnowledgeBases()
   },
   
   beforeUnmount() {
@@ -278,6 +322,15 @@ export default {
         this.projects = response.data.results || response.data
       } catch (error) {
         console.error('加载项目失败:', error)
+      }
+    },
+
+    async loadKnowledgeBases() {
+      try {
+        const response = await api.get('/requirement-analysis/knowledge-bases/')
+        this.knowledgeBases = response.data?.data || []
+      } catch (error) {
+        console.error('加载知识库失败:', error)
       }
     },
 
@@ -332,7 +385,13 @@ export default {
 
       const requirementText = `需求标题: ${this.manualInput.title}\n\n需求描述:\n${this.manualInput.description}`
       
-      await this.startGeneration(this.manualInput.title, requirementText, this.manualInput.selectedProject)
+      await this.startGeneration(
+        this.manualInput.title,
+        requirementText,
+        this.manualInput.selectedProject,
+        this.manualInput.selectedKnowledgeBase,
+        this.manualInput.customPrompt
+      )
     },
 
     async generateFromDocument() {
@@ -351,15 +410,20 @@ export default {
         }
 
         ElMessage.info('正在提取文档内容...')
-        const uploadResponse = await api.post('/requirement-analysis/api/documents/', formData, {
+        const uploadResponse = await api.post('/requirement-analysis/documents/', formData, {
           headers: {
             'Content-Type': 'multipart/form-data',
           },
         })
 
+        const documentId = uploadResponse?.data?.id || uploadResponse?.data?.data?.id
+        if (!documentId) {
+          throw new Error('上传接口未返回文档ID')
+        }
+
         // 提取文档内容
-        const extractResponse = await api.get(`/requirement-analysis/api/documents/${uploadResponse.data.id}/extract_text/`)
-        const extractedText = extractResponse.data.extracted_text
+        const extractResponse = await api.get(`/requirement-analysis/documents/${documentId}/extract_text/`)
+        const extractedText = extractResponse?.data?.extracted_text || extractResponse?.data?.data?.extracted_text
 
         if (!extractedText || extractedText.trim().length === 0) {
           ElMessage.error('无法从文档中提取到有效内容，请检查文档格式')
@@ -368,7 +432,13 @@ export default {
 
         const requirementText = `文档标题: ${this.documentTitle}\n\n文档内容:\n${extractedText}`
         
-        await this.startGeneration(this.documentTitle, requirementText, this.selectedProject)
+        await this.startGeneration(
+          this.documentTitle,
+          requirementText,
+          this.selectedProject,
+          this.selectedKnowledgeBase,
+          this.customPrompt
+        )
 
       } catch (error) {
         console.error('文档处理失败:', error)
@@ -376,7 +446,7 @@ export default {
       }
     },
 
-    async startGeneration(title, requirementText, projectId) {
+    async startGeneration(title, requirementText, projectId, knowledgeBaseId, customPrompt) {
       this.isGenerating = true
       this.currentStep = 1
       this.progressText = '正在创建生成任务...'
@@ -393,6 +463,14 @@ export default {
         // 如果选择了项目，添加到请求中
         if (projectId) {
           requestData.project = projectId
+        }
+
+        if (knowledgeBaseId) {
+          requestData.knowledge_base_id = knowledgeBaseId
+        }
+
+        if (customPrompt && customPrompt.trim()) {
+          requestData.custom_prompt = customPrompt.trim()
         }
         
         const response = await api.post('/requirement-analysis/api/testcase-generation/generate/', requestData)

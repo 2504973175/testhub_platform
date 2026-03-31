@@ -14,6 +14,7 @@ from django.core.files.base import ContentFile
 from typing import List, Dict, Any, Optional
 import logging
 import asyncio
+import threading
 import httpx
 import json
 from asgiref.sync import sync_to_async
@@ -99,11 +100,107 @@ class EmbeddingService:
     """向量嵌入服务"""
     
     @staticmethod
-    async def get_embedding(text: str, model: str = "text-embedding-ada-002") -> List[float]:
+    def get_vector_config():
+        """获取向量模型配置"""
+        from django.conf import settings
+        return getattr(settings, 'VECTOR_MODEL_CONFIG', {
+            'PROVIDER': 'openai',
+            'MODEL': 'text-embedding-ada-002',
+            'API_KEY': '',
+            'API_BASE': '',
+            'DIMENSION': 1536,
+        })
+    
+    @staticmethod
+    async def get_embedding(text: str, model: str = None) -> List[float]:
         """获取文本的向量嵌入"""
-        # 这里可以替换为实际的向量模型API调用
-        # 暂时返回模拟向量
-        return [0.1] * 1536
+        config = EmbeddingService.get_vector_config()
+        provider = config.get('PROVIDER', 'openai')
+        api_key = config.get('API_KEY', '')
+        api_base = config.get('API_BASE', '')
+        dimension = config.get('DIMENSION', 1536)
+        model_name = model or config.get('MODEL', 'text-embedding-ada-002')
+        
+        # 如果没有配置API密钥，返回模拟向量
+        if not api_key:
+            logger.warning(f"向量模型API密钥未配置，使用模拟向量。提供商: {provider}")
+            return [0.1] * dimension
+        
+        try:
+            if provider == 'openai':
+                return await EmbeddingService._get_openai_embedding(text, model_name, api_key, api_base)
+            elif provider == 'azure':
+                return await EmbeddingService._get_azure_embedding(text, model_name, api_key, api_base)
+            elif provider == 'local':
+                return await EmbeddingService._get_local_embedding(text, model_name, api_base)
+            else:
+                logger.warning(f"不支持的向量模型提供商: {provider}，使用模拟向量")
+                return [0.1] * dimension
+        except Exception as e:
+            logger.error(f"获取向量嵌入失败: {e}")
+            return [0.1] * dimension
+    
+    @staticmethod
+    async def _get_openai_embedding(text: str, model: str, api_key: str, api_base: str = None) -> List[float]:
+        """调用OpenAI API获取向量嵌入"""
+        import httpx
+        
+        headers = {
+            'Authorization': f'Bearer {api_key}',
+            'Content-Type': 'application/json'
+        }
+        
+        base_url = api_base or 'https://api.openai.com/v1'
+        
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f'{base_url}/embeddings',
+                headers=headers,
+                json={
+                    'input': text,
+                    'model': model
+                },
+                timeout=30.0
+            )
+            response.raise_for_status()
+            data = response.json()
+            return data['data'][0]['embedding']
+    
+    @staticmethod
+    async def _get_azure_embedding(text: str, model: str, api_key: str, api_base: str) -> List[float]:
+        """调用Azure OpenAI API获取向量嵌入"""
+        import httpx
+        
+        headers = {
+            'api-key': api_key,
+            'Content-Type': 'application/json'
+        }
+        
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f'{api_base}/openai/deployments/{model}/embeddings?api-version=2023-05-15',
+                headers=headers,
+                json={'input': text},
+                timeout=30.0
+            )
+            response.raise_for_status()
+            data = response.json()
+            return data['data'][0]['embedding']
+    
+    @staticmethod
+    async def _get_local_embedding(text: str, model: str, api_base: str) -> List[float]:
+        """调用本地向量模型服务获取向量嵌入"""
+        import httpx
+        
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f'{api_base}/embeddings',
+                json={'text': text, 'model': model},
+                timeout=30.0
+            )
+            response.raise_for_status()
+            data = response.json()
+            return data['embedding']
     
     @staticmethod
     async def chunk_and_embed(text: str, chunk_size: int = 1000, chunk_overlap: int = 100) -> List[Dict[str, Any]]:
@@ -168,13 +265,32 @@ class KnowledgeBaseService:
             )
             logger.info(f"文档记录已创建，文档ID: {document.id}, 知识库ID: {document.knowledge_base_id}")
             
-            # 异步处理文档
-            asyncio.create_task(KnowledgeBaseService.process_document(document))
+            # 后台线程异步处理文档，避免请求上下文结束导致任务丢失
+            t = threading.Thread(
+                target=KnowledgeBaseService.process_document_in_background,
+                args=(document.id,),
+                daemon=True
+            )
+            t.start()
             
             return document
         except Exception as e:
             logger.error(f"上传文档失败: {e}", exc_info=True)
             raise Exception(f"文档上传失败: {str(e)}")
+
+    @staticmethod
+    def process_document_in_background(document_id: int):
+        """在线程中运行异步文档处理任务"""
+        asyncio.run(KnowledgeBaseService.process_document_by_id(document_id))
+
+    @staticmethod
+    async def process_document_by_id(document_id: int):
+        """按ID加载文档并进行处理，避免跨上下文对象问题"""
+        get_document = sync_to_async(
+            KnowledgeDocument.objects.select_related("knowledge_base").get
+        )
+        document = await get_document(id=document_id)
+        await KnowledgeBaseService.process_document(document)
     
     @staticmethod
     async def process_document(document: KnowledgeDocument):

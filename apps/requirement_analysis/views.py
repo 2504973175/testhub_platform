@@ -1,157 +1,497 @@
 # -*- coding: utf-8 -*-
 """
-需求分析模块视图
+需求分析模块视图函数
 """
 
-from django.shortcuts import render
-from django.http import JsonResponse
-from django.views.decorators.http import require_http_methods
-from django.views.decorators.csrf import csrf_exempt
-from django.contrib.auth.decorators import login_required
-from django.core.files.uploadedfile import UploadedFile
 import json
 import logging
 import asyncio
-
-from .models import TestCaseGenerationTask, AIModelConfig
+import threading
+import uuid
+from django.contrib.auth.decorators import login_required
+from django.http import JsonResponse
+from django.views.decorators.http import require_http_methods
+from django.utils import timezone
+from .models import TestCaseGenerationTask, AIModelConfig, PromptConfig, RequirementDocument
 from .ai_models import AIModelService
 from .rag_services import RAGService
+from .services import DocumentProcessor
 
 logger = logging.getLogger(__name__)
+
+def _json_error(code: int, message: str, status: int = 200):
+    return JsonResponse({"code": code, "message": message}, status=status)
+
+
+# -----------------------------
+# 兼容前端 /requirement-analysis/api/*
+# -----------------------------
+
+@login_required
+@require_http_methods(["POST"])
+def api_upload_document(request):
+    """
+    前端兼容接口：
+    POST /api/requirement-analysis/api/documents/
+    """
+    try:
+        title = request.POST.get("title") or ""
+        project_id = request.POST.get("project") or None
+        file = request.FILES.get("file")
+
+        if not file:
+            return _json_error(400, "请选择文件", status=400)
+
+        filename = (file.name or "").lower()
+        if filename.endswith(".pdf"):
+            doc_type = "pdf"
+        elif filename.endswith((".doc", ".docx")):
+            doc_type = "docx"
+        elif filename.endswith(".txt"):
+            doc_type = "txt"
+        else:
+            return _json_error(400, "不支持的文档类型，请上传 PDF/Word/TXT", status=400)
+
+        document = RequirementDocument.objects.create(
+            title=title or file.name,
+            file=file,
+            document_type=doc_type,
+            status="uploaded",
+            uploaded_by=request.user,
+            project_id=project_id or None,
+            file_size=getattr(file, "size", None) or 0,
+        )
+
+        return JsonResponse({"id": document.id})
+    except Exception as e:
+        logger.error(f"文档上传失败: {e}", exc_info=True)
+        return _json_error(500, f"文档上传失败: {str(e)}", status=500)
 
 
 @login_required
 @require_http_methods(["GET"])
-def get_ai_cases(request):
-    """获取AI用例列表"""
+def api_extract_document_text(request, doc_id: int):
+    """
+    前端兼容接口：
+    GET /api/requirement-analysis/api/documents/<id>/extract_text/
+    """
     try:
-        # 这里应该实现获取AI用例列表的逻辑
-        # 暂时返回模拟数据
-        ai_cases = [
-            {
-                "id": 1,
-                "name": "用户登录测试",
-                "description": "测试用户登录功能",
-                "task_description": "测试用户使用有效凭证登录系统",
-                "created_at": "2024-01-01 10:00:00",
-                "created_by": "admin"
-            },
-            {
-                "id": 2,
-                "name": "数据录入测试",
-                "description": "测试数据录入功能",
-                "task_description": "测试数据录入和验证功能",
-                "created_at": "2024-01-02 14:30:00",
-                "created_by": "admin"
-            }
-        ]
-        return JsonResponse({"code": 200, "message": "success", "data": ai_cases})
+        document = RequirementDocument.objects.get(id=doc_id, uploaded_by=request.user)
+        extracted = DocumentProcessor.extract_text(document)
+        document.extracted_text = extracted or ""
+        document.status = "analyzed" if extracted else "failed"
+        document.save(update_fields=["extracted_text", "status", "updated_at"])
+        return JsonResponse({"extracted_text": document.extracted_text})
+    except RequirementDocument.DoesNotExist:
+        return _json_error(404, "文档不存在", status=404)
     except Exception as e:
-        logger.error(f"获取AI用例列表失败: {e}")
-        return JsonResponse({"code": 500, "message": f"获取AI用例列表失败: {str(e)}"})
+        logger.error(f"提取文档文本失败: {e}", exc_info=True)
+        return _json_error(500, f"提取失败: {str(e)}", status=500)
+
+
+def _run_generation_task(
+    task_id: str,
+    use_writer_model: bool,
+    use_reviewer_model: bool,
+    knowledge_base_id: int = None,
+    custom_prompt: str = ""
+):
+    """
+    简易后台线程执行生成（不依赖 Celery）。
+    """
+    try:
+        # 在同步上下文一次性加载所有外键，避免 async 阶段触发 ORM 懒加载
+        task = TestCaseGenerationTask.objects.select_related(
+            "writer_model_config",
+            "reviewer_model_config",
+            "writer_prompt_config",
+            "reviewer_prompt_config",
+        ).get(task_id=task_id)
+
+        task.status = "generating"
+        task.progress = 30
+        task.generation_log = (task.generation_log or "") + f"[{timezone.now()}] 开始生成\n"
+        task.save(update_fields=["status", "progress", "generation_log", "updated_at"])
+
+        if use_writer_model:
+            generated = asyncio.run(
+                AIModelService.generate_test_cases(
+                    task,
+                    knowledge_base_id=knowledge_base_id,
+                    custom_prompt=custom_prompt
+                )
+            )
+        else:
+            generated = ""
+
+        task.generated_test_cases = generated or ""
+        task.status = "reviewing" if use_reviewer_model else "completed"
+        task.progress = 70 if use_reviewer_model else 100
+        task.save(update_fields=["generated_test_cases", "status", "progress", "updated_at"])
+
+        if use_reviewer_model:
+            review_feedback = asyncio.run(AIModelService.review_test_cases(task, task.generated_test_cases))
+            task.review_feedback = review_feedback or ""
+            # 前端主要消费 final_test_cases，这里保持“用例内容”为主，评审意见单独放 review_feedback
+            task.final_test_cases = task.generated_test_cases
+            task.status = "completed"
+            task.progress = 100
+            task.completed_at = timezone.now()
+            task.save(update_fields=["review_feedback", "final_test_cases", "status", "progress", "completed_at", "updated_at"])
+        else:
+            task.final_test_cases = task.generated_test_cases
+            task.completed_at = timezone.now()
+            task.save(update_fields=["final_test_cases", "completed_at", "updated_at"])
+
+    except Exception as e:
+        logger.error(f"生成任务执行失败 task_id={task_id}: {e}", exc_info=True)
+        try:
+            task = TestCaseGenerationTask.objects.get(task_id=task_id)
+            task.status = "failed"
+            task.error_message = str(e)
+            task.progress = 0
+            task.completed_at = timezone.now()
+            task.save(update_fields=["status", "error_message", "progress", "completed_at", "updated_at"])
+        except Exception:
+            # 如果连任务都取不到，忽略
+            pass
+
+
+@login_required
+@require_http_methods(["POST"])
+def api_testcase_generation_generate(request):
+    """
+    前端兼容接口：
+    POST /api/requirement-analysis/api/testcase-generation/generate/
+    """
+    try:
+        data = json.loads(request.body or "{}")
+        title = data.get("title") or "测试用例生成任务"
+        requirement_text = data.get("requirement_text") or ""
+        project_id = data.get("project") or None
+        knowledge_base_id = data.get("knowledge_base_id") or None
+        custom_prompt = data.get("custom_prompt") or ""
+        use_writer_model = bool(data.get("use_writer_model", True))
+        use_reviewer_model = bool(data.get("use_reviewer_model", True))
+
+        if not requirement_text.strip():
+            return _json_error(400, "requirement_text 不能为空", status=400)
+
+        writer_model = AIModelConfig.objects.filter(role="writer", is_active=True).first()
+        reviewer_model = AIModelConfig.objects.filter(role="reviewer", is_active=True).first()
+        writer_prompt = PromptConfig.objects.filter(prompt_type="writer", is_active=True).first()
+        reviewer_prompt = PromptConfig.objects.filter(prompt_type="reviewer", is_active=True).first()
+
+        if use_writer_model and (not writer_model or not writer_prompt):
+            return _json_error(400, "未配置可用的编写模型或编写提示词", status=400)
+        if use_reviewer_model and (not reviewer_model or not reviewer_prompt):
+            return _json_error(400, "未配置可用的评审模型或评审提示词", status=400)
+
+        task_id = f"tcg_{uuid.uuid4().hex[:12]}"
+        task = TestCaseGenerationTask.objects.create(
+            task_id=task_id,
+            title=title,
+            requirement_text=requirement_text,
+            status="pending",
+            progress=0,
+            project_id=project_id or None,
+            writer_model_config=writer_model if use_writer_model else None,
+            reviewer_model_config=reviewer_model if use_reviewer_model else None,
+            writer_prompt_config=writer_prompt if use_writer_model else None,
+            reviewer_prompt_config=reviewer_prompt if use_reviewer_model else None,
+            created_by=request.user,
+        )
+
+        t = threading.Thread(
+            target=_run_generation_task,
+            args=(
+                task.task_id,
+                use_writer_model,
+                use_reviewer_model,
+                int(knowledge_base_id) if knowledge_base_id else None,
+                custom_prompt,
+            ),
+            daemon=True,
+        )
+        t.start()
+
+        return JsonResponse({"task_id": task.task_id})
+    except Exception as e:
+        logger.error(f"创建生成任务失败: {e}", exc_info=True)
+        return _json_error(500, f"创建生成任务失败: {str(e)}", status=500)
+
+
+def _task_to_frontend_payload(task: TestCaseGenerationTask):
+    return {
+        "task_id": task.task_id,
+        "title": task.title,
+        "requirement_text": task.requirement_text,
+        "status": task.status,
+        "progress": task.progress,
+        "generated_test_cases": task.generated_test_cases,
+        "review_feedback": task.review_feedback,
+        "final_test_cases": task.final_test_cases,
+        "error_message": task.error_message,
+        "is_saved_to_records": task.is_saved_to_records,
+        "created_at": task.created_at.strftime("%Y-%m-%d %H:%M:%S") if task.created_at else None,
+        "updated_at": task.updated_at.strftime("%Y-%m-%d %H:%M:%S") if task.updated_at else None,
+        "completed_at": task.completed_at.strftime("%Y-%m-%d %H:%M:%S") if task.completed_at else None,
+    }
+
+
+@login_required
+@require_http_methods(["GET"])
+def api_testcase_generation_progress(request, task_id: str):
+    """
+    前端兼容接口：
+    GET /api/requirement-analysis/api/testcase-generation/<task_id>/progress/
+    """
+    try:
+        task = TestCaseGenerationTask.objects.get(task_id=task_id, created_by=request.user)
+        return JsonResponse(_task_to_frontend_payload(task))
+    except TestCaseGenerationTask.DoesNotExist:
+        return _json_error(404, "任务不存在", status=404)
+
+
+@login_required
+@require_http_methods(["GET"])
+def api_testcase_generation_detail(request, task_id: str):
+    """
+    前端兼容接口：
+    GET /api/requirement-analysis/api/testcase-generation/<task_id>/
+    """
+    try:
+        task = TestCaseGenerationTask.objects.get(task_id=task_id, created_by=request.user)
+        return JsonResponse(_task_to_frontend_payload(task))
+    except TestCaseGenerationTask.DoesNotExist:
+        return _json_error(404, "任务不存在", status=404)
+
+
+@login_required
+@require_http_methods(["GET", "DELETE"])
+def api_testcase_generation_item(request, task_id: str):
+    """
+    前端兼容接口：
+    GET/DELETE /api/requirement-analysis/api/testcase-generation/<task_id>/
+    """
+    if request.method == "GET":
+        return api_testcase_generation_detail(request, task_id)
+    return api_testcase_generation_delete(request, task_id)
+
+
+@login_required
+@require_http_methods(["GET"])
+def api_testcase_generation_list(request):
+    """
+    前端兼容接口：
+    GET /api/requirement-analysis/api/testcase-generation/?page=1&page_size=10&status=completed
+    """
+    try:
+        page = int(request.GET.get("page", 1))
+        page_size = int(request.GET.get("page_size", 10))
+        status = request.GET.get("status") or None
+
+        qs = TestCaseGenerationTask.objects.filter(created_by=request.user).order_by("-created_at")
+        if status:
+            qs = qs.filter(status=status)
+
+        total = qs.count()
+        start = max(0, (page - 1) * page_size)
+        end = start + page_size
+        items = [_task_to_frontend_payload(t) for t in qs[start:end]]
+
+        return JsonResponse({"count": total, "results": items})
+    except Exception as e:
+        logger.error(f"加载任务列表失败: {e}", exc_info=True)
+        return _json_error(500, f"加载任务列表失败: {str(e)}", status=500)
+
+
+@login_required
+@require_http_methods(["DELETE"])
+def api_testcase_generation_delete(request, task_id: str):
+    """
+    前端兼容接口：
+    DELETE /api/requirement-analysis/api/testcase-generation/<task_id>/
+    """
+    try:
+        task = TestCaseGenerationTask.objects.get(task_id=task_id, created_by=request.user)
+        task.delete()
+        return JsonResponse({"success": True})
+    except TestCaseGenerationTask.DoesNotExist:
+        return _json_error(404, "任务不存在", status=404)
+
+
+@login_required
+@require_http_methods(["POST"])
+def api_testcase_generation_save_to_records(request, task_id: str):
+    """
+    前端兼容接口（简化实现）：
+    POST /api/requirement-analysis/api/testcase-generation/<task_id>/save_to_records/
+    """
+    try:
+        task = TestCaseGenerationTask.objects.get(task_id=task_id, created_by=request.user)
+        if task.is_saved_to_records:
+            return JsonResponse({"already_saved": True, "imported_count": 0})
+
+        task.is_saved_to_records = True
+        task.saved_at = timezone.now()
+        task.save(update_fields=["is_saved_to_records", "saved_at", "updated_at"])
+
+        return JsonResponse({"already_saved": False, "imported_count": 0})
+    except TestCaseGenerationTask.DoesNotExist:
+        return _json_error(404, "任务不存在", status=404)
+
+
+# AI用例生成相关视图函数
+@login_required
+@require_http_methods(["GET"])
+def get_ai_cases(request):
+    """获取AI用例生成任务列表"""
+    try:
+        tasks = TestCaseGenerationTask.objects.filter(created_by=request.user).order_by('-created_at')
+        data = []
+        for task in tasks:
+            data.append({
+                "id": task.id,
+                "name": task.name,
+                "status": task.status,
+                "status_display": task.get_status_display(),
+                "total_cases": task.total_cases,
+                "generated_cases": task.generated_cases,
+                "created_at": task.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+                "updated_at": task.updated_at.strftime("%Y-%m-%d %H:%M:%S")
+            })
+        return JsonResponse({"code": 200, "message": "success", "data": data, "count": len(data), "results": data})
+    except Exception as e:
+        logger.error(f"获取AI用例生成任务失败: {e}")
+        return JsonResponse({"code": 500, "message": f"获取AI用例生成任务失败: {str(e)}"})
 
 
 @login_required
 @require_http_methods(["POST"])
 def create_ai_case(request):
-    """创建AI用例"""
+    """创建AI用例生成任务"""
     try:
         data = json.loads(request.body)
         name = data.get("name")
-        description = data.get("description")
-        task_description = data.get("task_description")
+        requirements = data.get("requirements")
+        model_id = data.get("model_id")
         
-        if not name or not task_description:
-            return JsonResponse({"code": 400, "message": "用例名称和任务描述不能为空"})
+        if not name or not requirements:
+            return JsonResponse({"code": 400, "message": "任务名称和需求描述不能为空"})
         
-        # 这里应该实现创建AI用例的逻辑
-        # 暂时返回模拟数据
-        ai_case = {
-            "id": 3,
-            "name": name,
-            "description": description,
-            "task_description": task_description,
-            "created_at": "2024-01-03 09:00:00",
-            "created_by": request.user.username
-        }
-        return JsonResponse({"code": 200, "message": "success", "data": ai_case})
+        task = TestCaseGenerationTask.objects.create(
+            name=name,
+            requirements=requirements,
+            model_id=model_id,
+            status="pending",
+            created_by=request.user
+        )
+        
+        # 异步执行任务
+        from .tasks import generate_test_cases_task
+        generate_test_cases_task.delay(task.id)
+        
+        return JsonResponse({"code": 200, "message": "任务创建成功，正在生成测试用例", "data": {"id": task.id, "name": task.name}})
     except Exception as e:
-        logger.error(f"创建AI用例失败: {e}")
-        return JsonResponse({"code": 500, "message": f"创建AI用例失败: {str(e)}"})
+        logger.error(f"创建AI用例生成任务失败: {e}")
+        return JsonResponse({"code": 500, "message": f"创建AI用例生成任务失败: {str(e)}"})
 
 
 @login_required
 @require_http_methods(["GET"])
 def get_ai_case_detail(request, id):
-    """获取AI用例详情"""
+    """获取AI用例生成任务详情"""
     try:
-        # 这里应该实现获取AI用例详情的逻辑
-        # 暂时返回模拟数据
-        ai_case = {
-            "id": id,
-            "name": "用户登录测试",
-            "description": "测试用户登录功能",
-            "task_description": "测试用户使用有效凭证登录系统",
-            "created_at": "2024-01-01 10:00:00",
-            "created_by": "admin"
-        }
-        return JsonResponse({"code": 200, "message": "success", "data": ai_case})
+        task = TestCaseGenerationTask.objects.get(id=id, created_by=request.user)
+        return JsonResponse({
+            "code": 200,
+            "message": "success",
+            "data": {
+                "id": task.id,
+                "name": task.name,
+                "requirements": task.requirements,
+                "model_id": task.model_id,
+                "status": task.status,
+                "status_display": task.get_status_display(),
+                "total_cases": task.total_cases,
+                "generated_cases": task.generated_cases,
+                "cases": json.loads(task.cases) if task.cases else [],
+                "error_message": task.error_message,
+                "created_at": task.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+                "updated_at": task.updated_at.strftime("%Y-%m-%d %H:%M:%S")
+            }
+        })
+    except TestCaseGenerationTask.DoesNotExist:
+        return JsonResponse({"code": 404, "message": "任务不存在"})
     except Exception as e:
-        logger.error(f"获取AI用例详情失败: {e}")
-        return JsonResponse({"code": 500, "message": f"获取AI用例详情失败: {str(e)}"})
+        logger.error(f"获取AI用例生成任务详情失败: {e}")
+        return JsonResponse({"code": 500, "message": f"获取AI用例生成任务详情失败: {str(e)}"})
 
 
 @login_required
-@require_http_methods(["POST"])
+@require_http_methods(["PUT"])
 def update_ai_case(request, id):
-    """更新AI用例"""
+    """更新AI用例生成任务"""
     try:
+        task = TestCaseGenerationTask.objects.get(id=id, created_by=request.user)
         data = json.loads(request.body)
-        name = data.get("name")
-        description = data.get("description")
-        task_description = data.get("task_description")
         
-        # 这里应该实现更新AI用例的逻辑
-        # 暂时返回成功消息
-        return JsonResponse({"code": 200, "message": "success"})
+        if "name" in data:
+            task.name = data["name"]
+        if "requirements" in data:
+            task.requirements = data["requirements"]
+        if "model_id" in data:
+            task.model_id = data["model_id"]
+        
+        task.save()
+        return JsonResponse({"code": 200, "message": "任务更新成功", "data": {"id": task.id, "name": task.name}})
+    except TestCaseGenerationTask.DoesNotExist:
+        return JsonResponse({"code": 404, "message": "任务不存在"})
     except Exception as e:
-        logger.error(f"更新AI用例失败: {e}")
-        return JsonResponse({"code": 500, "message": f"更新AI用例失败: {str(e)}"})
+        logger.error(f"更新AI用例生成任务失败: {e}")
+        return JsonResponse({"code": 500, "message": f"更新AI用例生成任务失败: {str(e)}"})
 
 
 @login_required
-@require_http_methods(["POST"])
+@require_http_methods(["DELETE"])
 def delete_ai_case(request, id):
-    """删除AI用例"""
+    """删除AI用例生成任务"""
     try:
-        # 这里应该实现删除AI用例的逻辑
-        # 暂时返回成功消息
-        return JsonResponse({"code": 200, "message": "success"})
+        task = TestCaseGenerationTask.objects.get(id=id, created_by=request.user)
+        task.delete()
+        return JsonResponse({"code": 200, "message": "任务删除成功"})
+    except TestCaseGenerationTask.DoesNotExist:
+        return JsonResponse({"code": 404, "message": "任务不存在"})
     except Exception as e:
-        logger.error(f"删除AI用例失败: {e}")
-        return JsonResponse({"code": 500, "message": f"删除AI用例失败: {str(e)}"})
+        logger.error(f"删除AI用例生成任务失败: {e}")
+        return JsonResponse({"code": 500, "message": f"删除AI用例生成任务失败: {str(e)}"})
 
 
 @login_required
 @require_http_methods(["POST"])
 def run_ai_case(request, id):
-    """运行AI用例"""
+    """运行AI用例生成任务"""
     try:
-        # 这里应该实现运行AI用例的逻辑
-        # 暂时返回模拟数据
-        execution_result = {
-            "id": 1,
-            "case_id": id,
-            "status": "running",
-            "start_time": "2024-01-03 10:00:00",
-            "logs": "开始执行测试用例..."
-        }
-        return JsonResponse({"code": 200, "message": "success", "data": execution_result})
+        task = TestCaseGenerationTask.objects.get(id=id, created_by=request.user)
+        task.status = "pending"
+        task.generated_cases = 0
+        task.error_message = ""
+        task.save()
+        
+        # 异步执行任务
+        from .tasks import generate_test_cases_task
+        generate_test_cases_task.delay(task.id)
+        
+        return JsonResponse({"code": 200, "message": "任务已重新开始执行", "data": {"id": task.id, "status": task.status}})
+    except TestCaseGenerationTask.DoesNotExist:
+        return JsonResponse({"code": 404, "message": "任务不存在"})
     except Exception as e:
-        logger.error(f"运行AI用例失败: {e}")
-        return JsonResponse({"code": 500, "message": f"运行AI用例失败: {str(e)}"})
+        logger.error(f"运行AI用例生成任务失败: {e}")
+        return JsonResponse({"code": 500, "message": f"运行AI用例生成任务失败: {str(e)}"})
 
 
+# RAG检索相关视图函数
 @login_required
 @require_http_methods(["POST"])
 def rag_retrieve(request):
@@ -160,20 +500,15 @@ def rag_retrieve(request):
         data = json.loads(request.body)
         query = data.get("query")
         knowledge_base_id = data.get("knowledge_base_id")
-        top_k = data.get("top_k", 5)
+        top_k = data.get("top_k", 3)
         
-        if not query or not knowledge_base_id:
-            return JsonResponse({"code": 400, "message": "查询内容和知识库ID不能为空"})
+        if not query:
+            return JsonResponse({"code": 400, "message": "查询内容不能为空"})
         
-        # 异步调用RAG检索
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        relevant_chunks = loop.run_until_complete(
-            RAGService.retrieve_relevant_documents(query, knowledge_base_id, top_k)
-        )
-        loop.close()
+        rag_service = RAGService()
+        results = rag_service.retrieve(query, knowledge_base_id, top_k)
         
-        return JsonResponse({"code": 200, "message": "success", "data": relevant_chunks})
+        return JsonResponse({"code": 200, "message": "success", "data": results})
     except Exception as e:
         logger.error(f"RAG检索失败: {e}")
         return JsonResponse({"code": 500, "message": f"RAG检索失败: {str(e)}"})
@@ -182,40 +517,26 @@ def rag_retrieve(request):
 @login_required
 @require_http_methods(["POST"])
 def rag_generate_test_cases(request):
-    """使用RAG生成测试用例"""
+    """基于RAG生成测试用例"""
     try:
         data = json.loads(request.body)
-        task_id = data.get("task_id")
+        query = data.get("query")
         knowledge_base_id = data.get("knowledge_base_id")
+        model_id = data.get("model_id")
         
-        if not task_id or not knowledge_base_id:
-            return JsonResponse({"code": 400, "message": "任务ID和知识库ID不能为空"})
+        if not query:
+            return JsonResponse({"code": 400, "message": "查询内容不能为空"})
         
-        # 获取任务
-        task = TestCaseGenerationTask.objects.get(task_id=task_id)
+        rag_service = RAGService()
+        cases = rag_service.generate_test_cases(query, knowledge_base_id, model_id)
         
-        # 异步调用AI生成测试用例
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        test_cases = loop.run_until_complete(
-            AIModelService.generate_test_cases(task, knowledge_base_id)
-        )
-        loop.close()
-        
-        # 更新任务结果
-        task.generated_test_cases = test_cases
-        task.status = "completed"
-        task.progress = 100
-        task.save()
-        
-        return JsonResponse({"code": 200, "message": "success", "data": test_cases})
-    except TestCaseGenerationTask.DoesNotExist:
-        return JsonResponse({"code": 404, "message": "任务不存在"})
+        return JsonResponse({"code": 200, "message": "success", "data": cases})
     except Exception as e:
-        logger.error(f"生成测试用例失败: {e}")
-        return JsonResponse({"code": 500, "message": f"生成测试用例失败: {str(e)}"})
+        logger.error(f"基于RAG生成测试用例失败: {e}")
+        return JsonResponse({"code": 500, "message": f"基于RAG生成测试用例失败: {str(e)}"})
 
 
+# AI模型配置相关视图函数
 @login_required
 @require_http_methods(["GET"])
 def get_ai_models(request):
@@ -231,14 +552,16 @@ def get_ai_models(request):
                 "model_type_display": model.get_model_type_display(),
                 "role": model.role,
                 "role_display": model.get_role_display(),
+                "api_key": model.api_key[:4] + '*' * (len(model.api_key) - 8) + model.api_key[-4:] if model.api_key else '',
                 "base_url": model.base_url,
                 "model_name": model.model_name,
-                "max_tokens": model.max_tokens,
                 "temperature": model.temperature,
-                "top_p": model.top_p,
+                "max_tokens": model.max_tokens,
                 "is_active": model.is_active,
-                "api_key_masked": "*" * len(model.api_key) if model.api_key else "",
-                "created_at": model.created_at.strftime("%Y-%m-%d %H:%M:%S")
+                "created_by": model.created_by.id,
+                "created_by_name": model.created_by.username,
+                "created_at": model.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+                "updated_at": model.updated_at.strftime("%Y-%m-%d %H:%M:%S")
             })
         return JsonResponse({"code": 200, "message": "success", "data": data, "count": len(data), "results": data})
     except Exception as e:
@@ -258,19 +581,20 @@ def create_ai_model(request):
         api_key = data.get("api_key")
         base_url = data.get("base_url")
         model_name = data.get("model_name")
-        max_tokens = data.get("max_tokens", 4096)
         temperature = data.get("temperature", 0.7)
-        top_p = data.get("top_p", 0.9)
+        max_tokens = data.get("max_tokens", 4096)
         is_active = data.get("is_active", True)
         
+        # 验证必填字段
         if not name or not model_type or not role or not api_key or not base_url or not model_name:
-            return JsonResponse({"code": 400, "message": "缺少必填字段"})
+            return JsonResponse({"code": 400, "message": "请填写所有必填字段"})
         
-        # 检查是否已存在相同角色的活跃配置
+        # 如果设置为激活，需要将同类型和角色的其他配置设置为非激活
         if is_active:
             existing = AIModelConfig.objects.filter(model_type=model_type, role=role, is_active=True).first()
             if existing:
-                return JsonResponse({"code": 400, "message": f"已存在相同角色的活跃配置: {existing.name}"})
+                existing.is_active = False
+                existing.save()
         
         model = AIModelConfig.objects.create(
             name=name,
@@ -279,28 +603,34 @@ def create_ai_model(request):
             api_key=api_key,
             base_url=base_url,
             model_name=model_name,
-            max_tokens=max_tokens,
             temperature=temperature,
-            top_p=top_p,
+            max_tokens=max_tokens,
             is_active=is_active,
             created_by=request.user
         )
         
-        return JsonResponse({"code": 200, "message": "success", "data": {
-            "id": model.id,
-            "name": model.name,
-            "model_type": model.model_type,
-            "model_type_display": model.get_model_type_display(),
-            "role": model.role,
-            "role_display": model.get_role_display(),
-            "base_url": model.base_url,
-            "model_name": model.model_name,
-            "max_tokens": model.max_tokens,
-            "temperature": model.temperature,
-            "top_p": model.top_p,
-            "is_active": model.is_active,
-            "created_at": model.created_at.strftime("%Y-%m-%d %H:%M:%S")
-        }})
+        return JsonResponse({
+            "code": 200,
+            "message": "模型配置创建成功",
+            "data": {
+                "id": model.id,
+                "name": model.name,
+                "model_type": model.model_type,
+                "model_type_display": model.get_model_type_display(),
+                "role": model.role,
+                "role_display": model.get_role_display(),
+                "api_key": model.api_key[:4] + '*' * (len(model.api_key) - 8) + model.api_key[-4:],
+                "base_url": model.base_url,
+                "model_name": model.model_name,
+                "temperature": model.temperature,
+                "max_tokens": model.max_tokens,
+                "is_active": model.is_active,
+                "created_by": model.created_by.id,
+                "created_by_name": model.created_by.username,
+                "created_at": model.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+                "updated_at": model.updated_at.strftime("%Y-%m-%d %H:%M:%S")
+            }
+        })
     except Exception as e:
         logger.error(f"创建AI模型配置失败: {e}")
         return JsonResponse({"code": 500, "message": f"创建AI模型配置失败: {str(e)}"})
@@ -312,23 +642,28 @@ def get_ai_model_detail(request, id):
     """获取AI模型配置详情"""
     try:
         model = AIModelConfig.objects.get(id=id)
-        data = {
-            "id": model.id,
-            "name": model.name,
-            "model_type": model.model_type,
-            "model_type_display": model.get_model_type_display(),
-            "role": model.role,
-            "role_display": model.get_role_display(),
-            "base_url": model.base_url,
-            "model_name": model.model_name,
-            "max_tokens": model.max_tokens,
-            "temperature": model.temperature,
-            "top_p": model.top_p,
-            "is_active": model.is_active,
-            "api_key_masked": "*" * len(model.api_key) if model.api_key else "",
-            "created_at": model.created_at.strftime("%Y-%m-%d %H:%M:%S")
-        }
-        return JsonResponse({"code": 200, "message": "success", "data": data})
+        return JsonResponse({
+            "code": 200,
+            "message": "success",
+            "data": {
+                "id": model.id,
+                "name": model.name,
+                "model_type": model.model_type,
+                "model_type_display": model.get_model_type_display(),
+                "role": model.role,
+                "role_display": model.get_role_display(),
+                "api_key": model.api_key[:4] + '*' * (len(model.api_key) - 8) + model.api_key[-4:],
+                "base_url": model.base_url,
+                "model_name": model.model_name,
+                "temperature": model.temperature,
+                "max_tokens": model.max_tokens,
+                "is_active": model.is_active,
+                "created_by": model.created_by.id,
+                "created_by_name": model.created_by.username,
+                "created_at": model.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+                "updated_at": model.updated_at.strftime("%Y-%m-%d %H:%M:%S")
+            }
+        })
     except AIModelConfig.DoesNotExist:
         return JsonResponse({"code": 404, "message": "模型配置不存在"})
     except Exception as e:
@@ -337,57 +672,62 @@ def get_ai_model_detail(request, id):
 
 
 @login_required
-@require_http_methods(["PATCH"])
+@require_http_methods(["PUT"])
 def update_ai_model(request, id):
     """更新AI模型配置"""
     try:
-        data = json.loads(request.body)
         model = AIModelConfig.objects.get(id=id)
+        data = json.loads(request.body)
         
-        # 更新字段
         if "name" in data:
             model.name = data["name"]
         if "model_type" in data:
             model.model_type = data["model_type"]
         if "role" in data:
             model.role = data["role"]
-        if "api_key" in data and data["api_key"]:
+        if "api_key" in data and data["api_key"] and '*' not in data["api_key"]:
             model.api_key = data["api_key"]
         if "base_url" in data:
             model.base_url = data["base_url"]
         if "model_name" in data:
             model.model_name = data["model_name"]
-        if "max_tokens" in data:
-            model.max_tokens = data["max_tokens"]
         if "temperature" in data:
             model.temperature = data["temperature"]
-        if "top_p" in data:
-            model.top_p = data["top_p"]
+        if "max_tokens" in data:
+            model.max_tokens = data["max_tokens"]
         if "is_active" in data:
-            model.is_active = data["is_active"]
-            # 检查是否已存在相同角色的活跃配置
-            if model.is_active:
+            # 如果设置为激活，需要将同类型和角色的其他配置设置为非激活
+            if data["is_active"]:
                 existing = AIModelConfig.objects.filter(model_type=model.model_type, role=model.role, is_active=True).exclude(id=id).first()
                 if existing:
-                    return JsonResponse({"code": 400, "message": f"已存在相同角色的活跃配置: {existing.name}"})
+                    existing.is_active = False
+                    existing.save()
+            model.is_active = data["is_active"]
         
         model.save()
         
-        return JsonResponse({"code": 200, "message": "success", "data": {
-            "id": model.id,
-            "name": model.name,
-            "model_type": model.model_type,
-            "model_type_display": model.get_model_type_display(),
-            "role": model.role,
-            "role_display": model.get_role_display(),
-            "base_url": model.base_url,
-            "model_name": model.model_name,
-            "max_tokens": model.max_tokens,
-            "temperature": model.temperature,
-            "top_p": model.top_p,
-            "is_active": model.is_active,
-            "created_at": model.created_at.strftime("%Y-%m-%d %H:%M:%S")
-        }})
+        return JsonResponse({
+            "code": 200,
+            "message": "模型配置更新成功",
+            "data": {
+                "id": model.id,
+                "name": model.name,
+                "model_type": model.model_type,
+                "model_type_display": model.get_model_type_display(),
+                "role": model.role,
+                "role_display": model.get_role_display(),
+                "api_key": model.api_key[:4] + '*' * (len(model.api_key) - 8) + model.api_key[-4:],
+                "base_url": model.base_url,
+                "model_name": model.model_name,
+                "temperature": model.temperature,
+                "max_tokens": model.max_tokens,
+                "is_active": model.is_active,
+                "created_by": model.created_by.id,
+                "created_by_name": model.created_by.username,
+                "created_at": model.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+                "updated_at": model.updated_at.strftime("%Y-%m-%d %H:%M:%S")
+            }
+        })
     except AIModelConfig.DoesNotExist:
         return JsonResponse({"code": 404, "message": "模型配置不存在"})
     except Exception as e:
@@ -402,7 +742,7 @@ def delete_ai_model(request, id):
     try:
         model = AIModelConfig.objects.get(id=id)
         model.delete()
-        return JsonResponse({"code": 200, "message": "success"})
+        return JsonResponse({"code": 200, "message": "模型配置删除成功"})
     except AIModelConfig.DoesNotExist:
         return JsonResponse({"code": 404, "message": "模型配置不存在"})
     except Exception as e:
@@ -417,38 +757,44 @@ def test_ai_model_connection(request, id):
     try:
         model = AIModelConfig.objects.get(id=id)
         
-        # 测试连接
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
+        # 测试模型连接
+        test_text = "测试连接"
+        if model.role == "writer":
+            # 创建测试任务对象
+            task = TestCaseGenerationTask(
+                name="测试连接任务",
+                requirements=test_text,
+                model_id=model.id,
+                writer_model_config=model,
+                writer_prompt_config=PromptConfig.objects.filter(prompt_type='writer', is_active=True).first()
+            )
+            result = asyncio.run(AIModelService.generate_test_cases(task))
+        else:
+            # 创建测试任务对象
+            task = TestCaseGenerationTask(
+                name="测试连接任务",
+                requirements=test_text,
+                model_id=model.id,
+                reviewer_model_config=model,
+                reviewer_prompt_config=PromptConfig.objects.filter(prompt_type='reviewer', is_active=True).first()
+            )
+            test_cases = [{"用例标题": "测试用例", "测试步骤": "1. 打开页面\n2. 点击按钮", "预期结果": "按钮被点击"}]
+            result = asyncio.run(AIModelService.review_test_cases(task, json.dumps(test_cases)))
         
-        # 构造测试消息
-        test_messages = [
-            {"role": "system", "content": "你是一个测试助手，只需要回复'测试成功'"},
-            {"role": "user", "content": "请回复'测试成功'"}
-        ]
-        
-        response = loop.run_until_complete(
-            AIModelService.call_openai_compatible_api(model, test_messages)
-        )
-        loop.close()
-        
-        # 提取响应内容
-        response_content = response['choices'][0]['message']['content']
-        
-        return JsonResponse({"code": 200, "message": "success", "data": {
-            "success": True,
+        return JsonResponse({
+            "code": 200,
             "message": "连接测试成功",
-            "response": response_content
-        }})
+            "data": {
+                "success": True,
+                "message": "模型连接正常",
+                "response": str(result)[:200] + "..." if len(str(result)) > 200 else str(result)
+            }
+        })
     except AIModelConfig.DoesNotExist:
         return JsonResponse({"code": 404, "message": "模型配置不存在"})
     except Exception as e:
         logger.error(f"测试AI模型连接失败: {e}")
-        return JsonResponse({"code": 200, "message": "success", "data": {
-            "success": False,
-            "message": f"连接测试失败: {str(e)}",
-            "response": ""
-        }})
+        return JsonResponse({"code": 500, "message": f"连接测试失败: {str(e)}"})
 
 
 # 提示词配置相关视图函数
@@ -489,6 +835,10 @@ def create_prompt(request):
         content = data.get("content")
         is_active = data.get("is_active", True)
         
+        # 验证必填字段
+        if not name or not prompt_type or not content:
+            return JsonResponse({"code": 400, "message": "请填写所有必填字段"})
+        
         # 如果设置为激活，需要将同类型的其他配置设置为非激活
         if is_active:
             PromptConfig.objects.filter(prompt_type=prompt_type).update(is_active=False)
@@ -501,17 +851,22 @@ def create_prompt(request):
             created_by=request.user
         )
         
-        return JsonResponse({"code": 200, "message": "创建提示词配置成功", "data": {
-            "id": prompt.id,
-            "name": prompt.name,
-            "prompt_type": prompt.prompt_type,
-            "prompt_type_display": prompt.get_prompt_type_display(),
-            "content": prompt.content,
-            "is_active": prompt.is_active,
-            "created_by": prompt.created_by.id,
-            "created_by_name": prompt.created_by.username,
-            "created_at": prompt.created_at.strftime("%Y-%m-%d %H:%M:%S")
-        }})
+        return JsonResponse({
+            "code": 200,
+            "message": "提示词配置创建成功",
+            "data": {
+                "id": prompt.id,
+                "name": prompt.name,
+                "prompt_type": prompt.prompt_type,
+                "prompt_type_display": prompt.get_prompt_type_display(),
+                "content": prompt.content,
+                "is_active": prompt.is_active,
+                "created_by": prompt.created_by.id,
+                "created_by_name": prompt.created_by.username,
+                "created_at": prompt.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+                "updated_at": prompt.updated_at.strftime("%Y-%m-%d %H:%M:%S")
+            }
+        })
     except Exception as e:
         logger.error(f"创建提示词配置失败: {e}")
         return JsonResponse({"code": 500, "message": f"创建提示词配置失败: {str(e)}"})
@@ -523,19 +878,22 @@ def get_prompt_detail(request, id):
     """获取提示词配置详情"""
     try:
         prompt = PromptConfig.objects.get(id=id)
-        data = {
-            "id": prompt.id,
-            "name": prompt.name,
-            "prompt_type": prompt.prompt_type,
-            "prompt_type_display": prompt.get_prompt_type_display(),
-            "content": prompt.content,
-            "is_active": prompt.is_active,
-            "created_by": prompt.created_by.id,
-            "created_by_name": prompt.created_by.username,
-            "created_at": prompt.created_at.strftime("%Y-%m-%d %H:%M:%S"),
-            "updated_at": prompt.updated_at.strftime("%Y-%m-%d %H:%M:%S")
-        }
-        return JsonResponse({"code": 200, "message": "success", "data": data})
+        return JsonResponse({
+            "code": 200,
+            "message": "success",
+            "data": {
+                "id": prompt.id,
+                "name": prompt.name,
+                "prompt_type": prompt.prompt_type,
+                "prompt_type_display": prompt.get_prompt_type_display(),
+                "content": prompt.content,
+                "is_active": prompt.is_active,
+                "created_by": prompt.created_by.id,
+                "created_by_name": prompt.created_by.username,
+                "created_at": prompt.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+                "updated_at": prompt.updated_at.strftime("%Y-%m-%d %H:%M:%S")
+            }
+        })
     except PromptConfig.DoesNotExist:
         return JsonResponse({"code": 404, "message": "提示词配置不存在"})
     except Exception as e:
@@ -544,7 +902,7 @@ def get_prompt_detail(request, id):
 
 
 @login_required
-@require_http_methods(["PATCH"])
+@require_http_methods(["PUT"])
 def update_prompt(request, id):
     """更新提示词配置"""
     try:
@@ -565,18 +923,22 @@ def update_prompt(request, id):
         
         prompt.save()
         
-        return JsonResponse({"code": 200, "message": "更新提示词配置成功", "data": {
-            "id": prompt.id,
-            "name": prompt.name,
-            "prompt_type": prompt.prompt_type,
-            "prompt_type_display": prompt.get_prompt_type_display(),
-            "content": prompt.content,
-            "is_active": prompt.is_active,
-            "created_by": prompt.created_by.id,
-            "created_by_name": prompt.created_by.username,
-            "created_at": prompt.created_at.strftime("%Y-%m-%d %H:%M:%S"),
-            "updated_at": prompt.updated_at.strftime("%Y-%m-%d %H:%M:%S")
-        }})
+        return JsonResponse({
+            "code": 200,
+            "message": "更新提示词配置成功",
+            "data": {
+                "id": prompt.id,
+                "name": prompt.name,
+                "prompt_type": prompt.prompt_type,
+                "prompt_type_display": prompt.get_prompt_type_display(),
+                "content": prompt.content,
+                "is_active": prompt.is_active,
+                "created_by": prompt.created_by.id,
+                "created_by_name": prompt.created_by.username,
+                "created_at": prompt.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+                "updated_at": prompt.updated_at.strftime("%Y-%m-%d %H:%M:%S")
+            }
+        })
     except PromptConfig.DoesNotExist:
         return JsonResponse({"code": 404, "message": "提示词配置不存在"})
     except Exception as e:
@@ -612,3 +974,152 @@ def load_default_prompts(request):
     except Exception as e:
         logger.error(f"加载默认提示词失败: {e}")
         return JsonResponse({"code": 500, "message": f"加载默认提示词失败: {str(e)}"})
+
+
+# 向量模型配置相关视图函数
+@login_required
+@require_http_methods(["GET"])
+def get_vector_model_config(request):
+    """获取向量模型配置"""
+    try:
+        from django.conf import settings
+        config = getattr(settings, 'VECTOR_MODEL_CONFIG', {
+            'PROVIDER': 'openai',
+            'MODEL': 'text-embedding-ada-002',
+            'API_KEY': '',
+            'API_BASE': '',
+            'DIMENSION': 1536,
+        })
+        
+        # 隐藏API密钥的部分内容
+        api_key = config.get('API_KEY', '')
+        masked_api_key = ''
+        if api_key:
+            masked_api_key = api_key[:4] + '*' * (len(api_key) - 8) + api_key[-4:]
+        
+        return JsonResponse({
+            "code": 200,
+            "message": "success",
+            "data": {
+                "provider": config.get('PROVIDER', 'openai'),
+                "model": config.get('MODEL', 'text-embedding-ada-002'),
+                "api_key": masked_api_key,
+                "api_base": config.get('API_BASE', ''),
+                "dimension": config.get('DIMENSION', 1536),
+            }
+        })
+    except Exception as e:
+        logger.error(f"获取向量模型配置失败: {e}")
+        return JsonResponse({"code": 500, "message": f"获取向量模型配置失败: {str(e)}"})
+
+
+@login_required
+@require_http_methods(["POST"])
+def update_vector_model_config(request):
+    """更新向量模型配置"""
+    try:
+        data = json.loads(request.body)
+        provider = data.get("provider", "openai")
+        model = data.get("model", "text-embedding-ada-002")
+        api_key = data.get("api_key", "")
+        api_base = data.get("api_base", "")
+        dimension = data.get("dimension", 1536)
+        
+        # 验证提供商
+        if provider not in ["openai", "azure", "local"]:
+            return JsonResponse({"code": 400, "message": "不支持的向量模型提供商"})
+        
+        # 验证维度
+        try:
+            dimension = int(dimension)
+            if dimension <= 0:
+                return JsonResponse({"code": 400, "message": "向量维度必须大于0"})
+        except ValueError:
+            return JsonResponse({"code": 400, "message": "向量维度必须是整数"})
+        
+        # 获取当前配置
+        from django.conf import settings
+        current_config = getattr(settings, 'VECTOR_MODEL_CONFIG', {})
+        
+        # 如果API密钥为空或包含*，则保留原值
+        if not api_key or '*' in api_key:
+            api_key = current_config.get('API_KEY', '')
+        
+        # 更新配置
+        new_config = {
+            'PROVIDER': provider,
+            'MODEL': model,
+            'API_KEY': api_key,
+            'API_BASE': api_base,
+            'DIMENSION': dimension,
+        }
+        
+        # 更新settings中的配置
+        settings.VECTOR_MODEL_CONFIG = new_config
+        
+        # 隐藏API密钥的部分内容
+        masked_api_key = ''
+        if api_key:
+            masked_api_key = api_key[:4] + '*' * (len(api_key) - 8) + api_key[-4:]
+        
+        return JsonResponse({
+            "code": 200,
+            "message": "向量模型配置更新成功",
+            "data": {
+                "provider": provider,
+                "model": model,
+                "api_key": masked_api_key,
+                "api_base": api_base,
+                "dimension": dimension,
+            }
+        })
+    except Exception as e:
+        logger.error(f"更新向量模型配置失败: {e}")
+        return JsonResponse({"code": 500, "message": f"更新向量模型配置失败: {str(e)}"})
+
+
+@login_required
+@require_http_methods(["POST"])
+def test_vector_model_connection(request):
+    """测试向量模型连接"""
+    try:
+        from .knowledge_base_services import EmbeddingService
+        import asyncio
+        
+        # 获取当前配置
+        config = EmbeddingService.get_vector_config()
+        provider = config.get('PROVIDER', 'openai')
+        api_key = config.get('API_KEY', '')
+        
+        if not api_key:
+            return JsonResponse({"code": 400, "message": "请先配置API密钥"})
+        
+        # 测试获取向量嵌入
+        test_text = "这是一个测试文本"
+        
+        # 创建新的事件循环来运行异步函数
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            embedding = loop.run_until_complete(EmbeddingService.get_embedding(test_text))
+            loop.close()
+            
+            if embedding and len(embedding) > 0:
+                return JsonResponse({
+                    "code": 200,
+                    "message": "连接测试成功",
+                    "data": {
+                        "provider": provider,
+                        "dimension": len(embedding),
+                        "sample": embedding[:5]  # 返回前5个值作为示例
+                    }
+                })
+            else:
+                return JsonResponse({"code": 500, "message": "连接测试失败：返回的向量为空"})
+        except Exception as e:
+            loop.close()
+            raise e
+            
+    except Exception as e:
+        logger.error(f"测试向量模型连接失败: {e}")
+        return JsonResponse({"code": 500, "message": f"连接测试失败: {str(e)}"})

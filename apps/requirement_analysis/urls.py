@@ -8,6 +8,18 @@ from . import views
 from . import knowledge_base_views
 
 urlpatterns = [
+    # -----------------------------
+    # 兼容前端 /requirement-analysis/api/*
+    # -----------------------------
+    path('api/documents/', views.api_upload_document, name='api_upload_document'),
+    path('api/documents/<int:doc_id>/extract_text/', views.api_extract_document_text, name='api_extract_document_text'),
+
+    path('api/testcase-generation/', views.api_testcase_generation_list, name='api_testcase_generation_list'),
+    path('api/testcase-generation/generate/', views.api_testcase_generation_generate, name='api_testcase_generation_generate'),
+    path('api/testcase-generation/<str:task_id>/', views.api_testcase_generation_item, name='api_testcase_generation_item'),
+    path('api/testcase-generation/<str:task_id>/progress/', views.api_testcase_generation_progress, name='api_testcase_generation_progress'),
+    path('api/testcase-generation/<str:task_id>/save_to_records/', views.api_testcase_generation_save_to_records, name='api_testcase_generation_save_to_records'),
+
     # AI用例生成相关
     path('ai-cases/', views.get_ai_cases, name='get_ai_cases'),
     path('ai-cases/create/', views.create_ai_case, name='create_ai_case'),
@@ -44,4 +56,13 @@ urlpatterns = [
     path('prompts/<int:id>/update/', views.update_prompt, name='update_prompt'),
     path('prompts/<int:id>/delete/', views.delete_prompt, name='delete_prompt'),
     path('prompts/load_defaults/', views.load_default_prompts, name='load_default_prompts'),
+    
+    # 向量模型配置相关
+    path('vector-model-config/', views.get_vector_model_config, name='get_vector_model_config'),
+    path('vector-model-config/update/', views.update_vector_model_config, name='update_vector_model_config'),
+    path('vector-model-config/test/', views.test_vector_model_connection, name='test_vector_model_connection'),
+    
+    # 文档上传和提取相关
+    path('documents/', knowledge_base_views.upload_document_direct, name='upload_document_direct'),
+    path('documents/<int:doc_id>/extract_text/', knowledge_base_views.extract_document_text, name='extract_document_text'),
 ]
