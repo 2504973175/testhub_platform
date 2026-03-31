@@ -157,6 +157,7 @@ def get_documents_by_knowledge_base(request, kb_id):
                 "status": doc.status,
                 "status_display": doc.get_status_display(),
                 "embedding_count": getattr(doc, "embedding_count", 0),
+                "file_path": doc.file_path,
                 "created_at": doc.created_at.strftime("%Y-%m-%d %H:%M:%S"),
             }
             for doc in documents
@@ -359,6 +360,7 @@ def get_documents_by_folder(request, kb_id):
                 "status_display": doc.get_status_display(),
                 "embedding_count": getattr(doc, "embedding_count", 0),
                 "folder": doc.folder,
+                "file_path": doc.file_path,
                 "created_at": doc.created_at.strftime("%Y-%m-%d %H:%M:%S"),
             }
             for doc in qs
