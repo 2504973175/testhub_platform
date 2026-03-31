@@ -237,6 +237,25 @@ class AIModelConfig(models.Model):
         ).first()
 
 
+class VectorModelConfig(models.Model):
+    """向量模型配置（单例）"""
+    provider = models.CharField(max_length=20, default='openai', verbose_name='提供商')
+    model = models.CharField(max_length=100, default='text-embedding-ada-002', verbose_name='模型名称')
+    api_key = models.CharField(max_length=500, blank=True, default='', verbose_name='API Key')
+    api_base = models.URLField(blank=True, default='', verbose_name='API Base URL')
+    dimension = models.IntegerField(default=1536, verbose_name='向量维度')
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'vector_model_config'
+        verbose_name = '向量模型配置'
+
+    @classmethod
+    def get_config(cls):
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj
+
+
 class PromptConfig(models.Model):
     """提示词配置模型"""
     PROMPT_CHOICES = [
