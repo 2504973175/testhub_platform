@@ -44,6 +44,7 @@
               <label>知识库（可选，用于RAG增强）</label>
               <select v-model="manualInput.selectedKnowledgeBase" class="form-select">
                 <option value="">不使用知识库</option>
+                <option value="all">📚 所有知识库</option>
                 <option v-for="kb in knowledgeBases" :key="kb.id" :value="kb.id">
                   {{ kb.name }}
                 </option>
@@ -136,6 +137,7 @@
               <label>知识库（可选，用于RAG增强）</label>
               <select v-model="selectedKnowledgeBase" class="form-select">
                 <option value="">不使用知识库</option>
+                <option value="all">📚 所有知识库</option>
                 <option v-for="kb in knowledgeBases" :key="kb.id" :value="kb.id">
                   {{ kb.name }}
                 </option>

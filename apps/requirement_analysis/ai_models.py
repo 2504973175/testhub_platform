@@ -105,20 +105,34 @@ class AIModelService:
             from .knowledge_base_models import KnowledgeBase
             from asgiref.sync import sync_to_async
 
-            relevant_chunks = await RAGService.retrieve_relevant_documents(
-                task.requirement_text, knowledge_base_id
-            )
-            augmented_query = await RAGService.augment_query_with_rag(
-                task.requirement_text, knowledge_base_id
-            )
-            user_message = augmented_query
+            if str(knowledge_base_id) == 'all':
+                # 检索所有知识库
+                all_kbs = await sync_to_async(list)(KnowledgeBase.objects.filter(is_active=True))
+                all_chunks = []
+                for kb in all_kbs:
+                    chunks = await RAGService.retrieve_relevant_documents(task.requirement_text, kb.id, top_k=3)
+                    all_chunks.extend(chunks)
+                # 按相似度排序取 top 5
+                all_chunks.sort(key=lambda x: x['similarity'], reverse=True)
+                relevant_chunks = all_chunks[:5]
+                kb_name = '所有知识库'
+            else:
+                relevant_chunks = await RAGService.retrieve_relevant_documents(
+                    task.requirement_text, knowledge_base_id
+                )
+                try:
+                    kb = await sync_to_async(KnowledgeBase.objects.get)(id=knowledge_base_id)
+                    kb_name = kb.name
+                except Exception:
+                    kb_name = f"知识库#{knowledge_base_id}"
 
-            # 获取知识库名称
-            try:
-                kb = await sync_to_async(KnowledgeBase.objects.get)(id=knowledge_base_id)
-                kb_name = kb.name
-            except Exception:
-                kb_name = f"知识库#{knowledge_base_id}"
+            augmented_query = await RAGService.augment_query_with_rag(
+                task.requirement_text, knowledge_base_id if str(knowledge_base_id) != 'all' else (all_kbs[0].id if all_kbs else None)
+            ) if str(knowledge_base_id) != 'all' else task.requirement_text
+            if str(knowledge_base_id) == 'all' and relevant_chunks:
+                from .rag_services import RAGService as _RS
+                augmented_query = await _RS.augment_query_with_rag_chunks(task.requirement_text, relevant_chunks)
+            user_message = augmented_query
 
             rag_info = {
                 "knowledge_base_id": knowledge_base_id,
