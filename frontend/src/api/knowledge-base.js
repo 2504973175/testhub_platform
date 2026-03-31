@@ -92,3 +92,42 @@ export function ragGenerateTestCases(taskId, kbId) {
     }
   })
 }
+
+// 获取文件夹列表
+export function getFolders(kbId) {
+  return request({
+    url: `/requirement-analysis/knowledge-bases/${kbId}/folders/`,
+    method: 'get'
+  })
+}
+
+// 创建文件夹
+export function createFolder(kbId, name) {
+  return request({
+    url: `/requirement-analysis/knowledge-bases/${kbId}/folders/create/`,
+    method: 'post',
+    data: { name }
+  })
+}
+
+// 获取指定文件夹下的文档
+export function getDocumentsByFolder(kbId, folder) {
+  return request({
+    url: `/requirement-analysis/knowledge-bases/${kbId}/folders/documents/`,
+    method: 'get',
+    params: { folder }
+  })
+}
+
+// 上传文档到指定文件夹
+export function uploadDocumentToFolder(kbId, file, folder) {
+  const formData = new FormData()
+  formData.append('file', file)
+  formData.append('folder', folder)
+  return request({
+    url: `/requirement-analysis/knowledge-bases/${kbId}/folders/upload/`,
+    method: 'post',
+    data: formData,
+    headers: { 'Content-Type': 'multipart/form-data' }
+  })
+}

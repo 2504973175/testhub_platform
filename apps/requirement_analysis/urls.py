@@ -39,6 +39,10 @@ urlpatterns = [
     path('knowledge-bases/<int:kb_id>/delete/', knowledge_base_views.delete_knowledge_base, name='delete_knowledge_base'),
     path('knowledge-bases/<int:kb_id>/documents/', knowledge_base_views.get_documents_by_knowledge_base, name='get_documents_by_knowledge_base'),
     path('knowledge-bases/<int:kb_id>/documents/upload/', knowledge_base_views.upload_document, name='upload_document'),
+    path('knowledge-bases/<int:kb_id>/folders/', knowledge_base_views.get_folders, name='get_folders'),
+    path('knowledge-bases/<int:kb_id>/folders/create/', knowledge_base_views.create_folder, name='create_folder'),
+    path('knowledge-bases/<int:kb_id>/folders/documents/', knowledge_base_views.get_documents_by_folder, name='get_documents_by_folder'),
+    path('knowledge-bases/<int:kb_id>/folders/upload/', knowledge_base_views.upload_document_to_folder, name='upload_document_to_folder'),
     path('knowledge-bases/documents/<int:doc_id>/delete/', knowledge_base_views.delete_document, name='delete_document'),
     
     # RAG检索相关

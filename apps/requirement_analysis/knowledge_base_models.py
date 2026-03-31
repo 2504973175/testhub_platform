@@ -61,6 +61,7 @@ class KnowledgeDocument(models.Model):
     
     document_id = models.CharField(max_length=50, unique=True, default=generate_document_id, verbose_name='文档ID')
     knowledge_base = models.ForeignKey(KnowledgeBase, on_delete=models.CASCADE, related_name='documents', verbose_name='所属知识库')
+    folder = models.CharField(max_length=200, blank=True, default='', verbose_name='所属文件夹')
     title = models.CharField(max_length=200, verbose_name='文档标题')
     file_path = models.CharField(max_length=500, verbose_name='文件路径')
     file_type = models.CharField(max_length=20, choices=DOCUMENT_TYPE_CHOICES, verbose_name='文件类型')
