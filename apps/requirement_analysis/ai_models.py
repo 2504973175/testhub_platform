@@ -128,6 +128,7 @@ class AIModelService:
                     {
                         "document_title": c["document_title"],
                         "chunk_index": c["chunk_index"],
+                        "chunk_text": c["chunk_text"],
                         "similarity": round(c["similarity"], 4),
                     }
                     for c in relevant_chunks
