@@ -94,42 +94,71 @@ class AIModelService:
         task: TestCaseGenerationTask,
         knowledge_base_id: Optional[int] = None,
         custom_prompt: Optional[str] = None
-    ) -> str:
-        """生成测试用例"""
+    ):
+        """生成测试用例，返回 (content, rag_info) 元组"""
         writer_prompt = (custom_prompt or "").strip() or task.writer_prompt_config.content
-        
+        rag_info = None
+
         # 如果提供了知识库ID，使用RAG增强查询
         if knowledge_base_id:
             from .rag_services import RAGService
+            from .knowledge_base_models import KnowledgeBase
+            from asgiref.sync import sync_to_async
+
+            relevant_chunks = await RAGService.retrieve_relevant_documents(
+                task.requirement_text, knowledge_base_id
+            )
             augmented_query = await RAGService.augment_query_with_rag(
                 task.requirement_text, knowledge_base_id
             )
             user_message = augmented_query
+
+            # 获取知识库名称
+            try:
+                kb = await sync_to_async(KnowledgeBase.objects.get)(id=knowledge_base_id)
+                kb_name = kb.name
+            except Exception:
+                kb_name = f"知识库#{knowledge_base_id}"
+
+            rag_info = {
+                "knowledge_base_id": knowledge_base_id,
+                "knowledge_base_name": kb_name,
+                "chunk_count": len(relevant_chunks),
+                "chunks": [
+                    {
+                        "document_title": c["document_title"],
+                        "chunk_index": c["chunk_index"],
+                        "similarity": round(c["similarity"], 4),
+                    }
+                    for c in relevant_chunks
+                ],
+            }
         else:
             user_message = f"请根据以下需求生成测试用例：\n\n{task.requirement_text}"
-        
+
         messages = [
             {"role": "system", "content": writer_prompt},
             {"role": "user", "content": user_message}
         ]
-        
+
         # 所有支持的模型都使用兼容OpenAI的接口
         response = await AIModelService.call_openai_compatible_api(task.writer_model_config, messages)
-        
-        return response['choices'][0]['message']['content']
+        content = response['choices'][0]['message']['content']
+        usage = response.get('usage', {})
+        return content, rag_info, usage
     
     @staticmethod
-    async def review_test_cases(task: TestCaseGenerationTask, test_cases: str) -> str:
-        """评审测试用例"""
+    async def review_test_cases(task: TestCaseGenerationTask, test_cases: str):
+        """评审测试用例，返回 (content, usage) 元组"""
         reviewer_prompt = task.reviewer_prompt_config.content
         user_message = f"请评审以下测试用例：\n\n{test_cases}"
-        
+
         messages = [
             {"role": "system", "content": reviewer_prompt},
             {"role": "user", "content": user_message}
         ]
-        
-        # 所有支持的模型都使用兼容OpenAI的接口
+
         response = await AIModelService.call_openai_compatible_api(task.reviewer_model_config, messages)
-        
-        return response['choices'][0]['message']['content']
+        content = response['choices'][0]['message']['content']
+        usage = response.get('usage', {})
+        return content, usage

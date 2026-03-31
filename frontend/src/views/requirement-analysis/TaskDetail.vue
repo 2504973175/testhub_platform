@@ -46,6 +46,37 @@
       </el-collapse>
     </div>
 
+    <!-- Token消耗信息 -->
+    <div v-if="task.token_usage" class="token-usage-card">
+      <span class="token-icon">🪙</span>
+      <span class="token-text">
+        本次生成共消耗
+        <strong>{{ task.token_usage.total_tokens?.toLocaleString() }}</strong>
+        tokens
+        <span v-if="task.token_usage.writer?.total_tokens" class="token-detail">
+          （编写 {{ task.token_usage.writer.prompt_tokens?.toLocaleString() }} 输入 + {{ task.token_usage.writer.completion_tokens?.toLocaleString() }} 输出
+          <template v-if="task.token_usage.reviewer?.total_tokens">
+            ，评审 {{ task.token_usage.reviewer.prompt_tokens?.toLocaleString() }} 输入 + {{ task.token_usage.reviewer.completion_tokens?.toLocaleString() }} 输出
+          </template>
+          ）
+        </span>
+      </span>
+    </div>
+
+    <!-- RAG知识库引用信息 -->
+    <div v-if="task.rag_info" class="rag-info-card">
+      <div class="rag-info-header">
+        <span class="rag-icon">🔍</span>
+        <span class="rag-text">
+          本次生成参考了知识库
+          <strong>「{{ task.rag_info.knowledge_base_name }}」</strong>
+          中的
+          <strong>{{ task.rag_info.chunk_count }}</strong>
+          个文档片段
+        </span>
+      </div>
+    </div>
+
     <div v-if="isLoading" class="loading-state">
       <p>🔄 正在加载任务详情...</p>
     </div>
@@ -882,6 +913,62 @@ export default {
   padding: 20px;
   max-width: 1400px;
   margin: 0 auto;
+}
+
+/* Token消耗卡片 */
+.token-usage-card {
+  margin-bottom: 12px;
+  background: #fdf6ec;
+  border: 1px solid #fcd99a;
+  border-radius: 8px;
+  padding: 12px 18px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #606266;
+}
+
+.token-icon {
+  font-size: 16px;
+}
+
+.token-text strong {
+  color: #e6a23c;
+}
+
+.token-detail {
+  color: #909399;
+  font-size: 13px;
+}
+
+/* RAG引用信息卡片 */
+.rag-info-card {
+  margin-bottom: 16px;
+  background: #ecf5ff;
+  border: 1px solid #b3d8ff;
+  border-radius: 8px;
+  padding: 12px 18px;
+}
+
+.rag-info-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #409eff;
+}
+
+.rag-icon {
+  font-size: 16px;
+}
+
+.rag-text {
+  color: #606266;
+}
+
+.rag-text strong {
+  color: #409eff;
 }
 
 /* 需求描述折叠卡片 */

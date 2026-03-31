@@ -25,28 +25,16 @@
               <el-menu-item index="/ai-generation/prompt-config">提示词配置</el-menu-item>
               <el-menu-item index="/ai-generation/knowledge-base">知识库管理</el-menu-item>
             </el-sub-menu>
+             <el-menu-item index="/ai-generation/testcases">
+              <el-icon><Document /></el-icon>
+              <span>测试用例</span>
+            </el-menu-item>
             <el-menu-item index="/ai-generation/projects">
               <el-icon><Folder /></el-icon>
               <span>项目管理</span>
             </el-menu-item>
-            <el-menu-item index="/ai-generation/testcases">
-              <el-icon><Document /></el-icon>
-              <span>测试用例</span>
-            </el-menu-item>
-            <el-menu-item index="/ai-generation/versions">
-              <el-icon><Flag /></el-icon>
-              <span>版本管理</span>
-            </el-menu-item>
            
-
-            <el-menu-item index="/ai-generation/executions">
-              <el-icon><VideoPlay /></el-icon>
-              <span>测试计划</span>
-            </el-menu-item>
-            <el-menu-item index="/ai-generation/reports">
-              <el-icon><DataAnalysis /></el-icon>
-              <span>测试报告</span>
-            </el-menu-item>
+          
           </template>
 
           <!-- 接口测试模块菜单 -->
