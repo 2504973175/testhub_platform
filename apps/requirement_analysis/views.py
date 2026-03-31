@@ -531,24 +531,27 @@ def delete_ai_model(request, id):
 def test_ai_model_connection(request, id):
     try:
         m = AIModelConfig.objects.get(id=id)
-        prompt_type = "writer" if m.role == "writer" else "reviewer"
-        prompt = PromptConfig.objects.filter(prompt_type=prompt_type, is_active=True).first()
-        if not prompt:
-            return JsonResponse({"code": 400, "message": "未找到对应提示词配置"})
-        task = TestCaseGenerationTask(
-            task_id="test", title="test", requirement_text="测试连接",
-            writer_model_config=m if m.role == "writer" else None,
-            reviewer_model_config=m if m.role != "writer" else None,
-            writer_prompt_config=prompt if m.role == "writer" else None,
-            reviewer_prompt_config=prompt if m.role != "writer" else None,
-            created_by=request.user,
-        )
-        if m.role == "writer":
-            result, _, _ = asyncio.run(AIModelService.generate_test_cases(task))
-        else:
-            result, _ = asyncio.run(AIModelService.review_test_cases(task, "测试用例"))
-        preview = str(result)[:200] + ("..." if len(str(result)) > 200 else "")
-        return JsonResponse({"code": 200, "message": "连接测试成功", "data": {"success": True, "response": preview}})
+
+        async def _ping(config):
+            import httpx
+            headers = {'Authorization': f'Bearer {config.api_key}', 'Content-Type': 'application/json'}
+            base_url = config.base_url.rstrip('/')
+            if not base_url.endswith('/chat/completions'):
+                url = f"{base_url}/chat/completions" if base_url.endswith('/v1') else f"{base_url}/v1/chat/completions"
+            else:
+                url = base_url
+            data = {
+                'model': config.model_name,
+                'messages': [{'role': 'user', 'content': 'hi'}],
+                'max_tokens': 1,
+            }
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                resp = await client.post(url, headers=headers, json=data)
+                resp.raise_for_status()
+                return resp.json()
+
+        asyncio.run(_ping(m))
+        return JsonResponse({"code": 200, "message": "连接测试成功", "data": {"success": True}})
     except AIModelConfig.DoesNotExist:
         return JsonResponse({"code": 404, "message": "模型配置不存在"})
     except Exception as e:
