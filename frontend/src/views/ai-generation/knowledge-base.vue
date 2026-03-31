@@ -115,6 +115,13 @@
           <el-empty v-if="documents.length === 0" description="暂无文档，请上传" />
           <el-table v-else :data="documents" border stripe>
             <el-table-column prop="title" label="文档标题" min-width="180" />
+            <el-table-column label="查看原文" width="90">
+              <template #default="{ row }">
+                <el-button size="small" type="primary" link @click="openOriginalDoc(row)">
+                  📄 原文
+                </el-button>
+              </template>
+            </el-table-column>
             <el-table-column prop="file_type" label="类型" width="80" />
             <el-table-column label="大小" width="100">
               <template #default="{ row }">{{ formatFileSize(row.file_size) }}</template>
@@ -340,6 +347,12 @@ const openKnowledgeBaseDrawer = async (kb) => {
   drawerVisible.value = true
   await fetchFolders()
   await fetchDocuments()
+}
+
+const openOriginalDoc = (doc) => {
+  if (!doc.file_path) { ElMessage.warning('文件路径不存在'); return }
+  const path = doc.file_path.replace(/\\/g, '/')
+  window.open(`/media/${path}`, '_blank')
 }
 
 const handleDeleteDocument = async (doc) => {

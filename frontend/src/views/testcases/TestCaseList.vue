@@ -79,32 +79,8 @@
             </el-link>
           </template>
         </el-table-column>
-        <el-table-column prop="project.name" label="关联项目" width="150">
-          <template #default="{ row }">
-            {{ row.project?.name || '-' }}
-          </template>
-        </el-table-column>
-        <el-table-column prop="versions" label="关联版本" width="200">
-          <template #default="{ row }">
-            <div v-if="row.versions && row.versions.length > 0" class="version-tags">
-              <el-tag 
-                v-for="version in row.versions.slice(0, 2)" 
-                :key="version.id" 
-                size="small" 
-                :type="version.is_baseline ? 'warning' : 'info'"
-                class="version-tag"
-              >
-                {{ version.name }}
-              </el-tag>
-              <el-tooltip v-if="row.versions.length > 2" :content="getVersionsTooltip(row.versions)">
-                <el-tag size="small" type="info" class="version-tag">
-                  +{{ row.versions.length - 2 }}
-                </el-tag>
-              </el-tooltip>
-            </div>
-            <span v-else class="no-version">未关联版本</span>
-          </template>
-        </el-table-column>
+       
+     
         <el-table-column prop="priority" label="优先级" width="100">
           <template #default="{ row }">
             <el-tag :class="`priority-tag ${row.priority}`">{{ getPriorityText(row.priority) }}</el-tag>
