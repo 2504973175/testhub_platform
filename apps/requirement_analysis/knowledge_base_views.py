@@ -10,6 +10,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required
 from django.core.files.uploadedfile import UploadedFile
 from asgiref.sync import async_to_sync
+from django.db.models import Count
 import json
 import logging
 
@@ -142,7 +143,9 @@ def get_documents_by_knowledge_base(request, kb_id):
     """获取知识库下的文档列表"""
     try:
         logger.info(f"获取知识库 {kb_id} 下的文档列表")
-        documents = KnowledgeBaseService.get_documents_by_knowledge_base(kb_id)
+        documents = KnowledgeBaseService.get_documents_by_knowledge_base(kb_id).annotate(
+            embedding_count=Count('embeddings')
+        )
         logger.info(f"查询到 {len(documents)} 个文档")
         
         data = [
@@ -152,6 +155,8 @@ def get_documents_by_knowledge_base(request, kb_id):
                 "file_type": doc.file_type,
                 "file_size": doc.file_size,
                 "status": doc.status,
+                "status_display": doc.get_status_display(),
+                "embedding_count": getattr(doc, "embedding_count", 0),
                 "created_at": doc.created_at.strftime("%Y-%m-%d %H:%M:%S"),
             }
             for doc in documents
