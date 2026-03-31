@@ -812,7 +812,20 @@ export default {
 
       try {
         const response = await api.post(`/requirement-analysis/ai-models/${config.id}/test_connection/`)
-        this.testResult = response.data
+        const resData = response.data
+        if (resData.code === 200) {
+          this.testResult = {
+            success: true,
+            message: resData.message || '连接测试成功',
+            response: resData.data?.response || ''
+          }
+        } else {
+          this.testResult = {
+            success: false,
+            message: resData.message || '连接测试失败',
+            response: ''
+          }
+        }
         this.showTestResult = true
       } catch (error) {
         console.error('测试连接失败:', error)
