@@ -65,7 +65,7 @@
 
     <!-- RAG知识库引用信息 -->
     <div v-if="task.rag_info" class="rag-info-card">
-      <div class="rag-info-header">
+      <div class="rag-info-header" @click="showRagChunks = !showRagChunks" style="cursor:pointer">
         <span class="rag-icon">🔍</span>
         <span class="rag-text">
           本次生成参考了知识库
@@ -74,6 +74,16 @@
           <strong>{{ task.rag_info.chunk_count }}</strong>
           个文档片段
         </span>
+        <span style="margin-left:8px;color:#999;font-size:12px">{{ showRagChunks ? '▲ 收起' : '▼ 展开' }}</span>
+      </div>
+      <div v-if="showRagChunks && task.rag_info.chunks" class="rag-chunks">
+        <div v-for="(chunk, i) in task.rag_info.chunks" :key="i" class="rag-chunk-item">
+          <div class="rag-chunk-header">
+            <span class="chunk-doc">📄 {{ chunk.document_title }}</span>
+            <span class="chunk-meta">片段 #{{ chunk.chunk_index + 1 }} · 相似度 {{ (chunk.similarity * 100).toFixed(1) }}%</span>
+          </div>
+          <pre class="chunk-body">{{ chunk.chunk_text }}</pre>
+        </div>
       </div>
     </div>
 
@@ -294,6 +304,7 @@ export default {
       testCases: [],
       selectedCases: [],
       isLoading: true,
+      showRagChunks: false,
       showCaseDetail: false,
       selectedCase: {},
       selectedCaseIndex: 0,
@@ -940,6 +951,50 @@ export default {
 .token-detail {
   color: #909399;
   font-size: 13px;
+}
+
+.rag-chunks {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.rag-chunk-item {
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.rag-chunk-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 12px;
+  background: #f5f7fa;
+  font-size: 13px;
+}
+
+.chunk-doc {
+  font-weight: 500;
+  color: #2c3e50;
+}
+
+.chunk-meta {
+  color: #888;
+  font-size: 12px;
+}
+
+.chunk-body {
+  margin: 0;
+  padding: 10px 12px;
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-all;
+  background: #fff;
+  max-height: 200px;
+  overflow-y: auto;
 }
 
 /* RAG引用信息卡片 */

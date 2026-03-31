@@ -81,6 +81,7 @@
           <div class="header-cell serial-cell">序号</div>
 
           <div class="header-cell requirement-name-cell">关联需求</div>
+          <div class="header-cell rag-cell">知识库</div>
           <div class="header-cell count-cell">用例条数</div>
           <div class="header-cell time-cell">开始时间</div>
           <div class="header-cell time-cell">总耗时</div>
