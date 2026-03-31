@@ -25,13 +25,19 @@ logger = logging.getLogger(__name__)
 def get_knowledge_base_list(request):
     """获取知识库列表"""
     try:
-        knowledge_bases = KnowledgeBaseService.get_knowledge_base_list()
+        from django.db.models import Count, Max
+        knowledge_bases = KnowledgeBaseService.get_knowledge_base_list().annotate(
+            doc_count=Count('documents'),
+            latest_doc_at=Max('documents__created_at')
+        )
         data = [
             {
                 "id": kb.id,
                 "name": kb.name,
                 "description": kb.description,
                 "is_active": kb.is_active,
+                "doc_count": kb.doc_count,
+                "latest_doc_at": kb.latest_doc_at.strftime("%Y-%m-%d %H:%M:%S") if kb.latest_doc_at else None,
                 "created_at": kb.created_at.strftime("%Y-%m-%d %H:%M:%S"),
                 "updated_at": kb.updated_at.strftime("%Y-%m-%d %H:%M:%S"),
             }

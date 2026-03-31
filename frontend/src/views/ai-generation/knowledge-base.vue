@@ -17,12 +17,23 @@
             <el-card class="kb-card" shadow="hover">
               <template #header>
                 <div class="kb-header">
-                  <span>{{ kb.name }}</span>
+                  <span class="kb-name">{{ kb.name }}</span>
                   <el-switch v-model="kb.is_active" @change="handleToggleKnowledgeBase(kb)" />
                 </div>
               </template>
               <div class="kb-content">
                 <p class="kb-description">{{ kb.description || '无描述' }}</p>
+                <div class="kb-stats">
+                  <span class="kb-stat-item">
+                    <el-icon><Document /></el-icon>
+                    {{ kb.doc_count ?? 0 }} 个文档
+                  </span>
+                  <span class="kb-stat-item" v-if="kb.latest_doc_at">
+                    <el-icon><Clock /></el-icon>
+                    最新上传 {{ kb.latest_doc_at }}
+                  </span>
+                  <span class="kb-stat-item no-doc" v-else>暂无文档</span>
+                </div>
                 <div class="kb-actions">
                   <el-button size="small" type="primary" @click="openKnowledgeBaseDrawer(kb)">
                     <el-icon><FolderOpened /></el-icon>
@@ -206,7 +217,7 @@
 <script setup>
 import { ref, onMounted, watch } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Plus, Delete, Upload, Folder, FolderOpened, FolderAdd, Loading } from '@element-plus/icons-vue'
+import { Plus, Delete, Upload, Folder, FolderOpened, FolderAdd, Loading, Clock } from '@element-plus/icons-vue'
 import {
   getKnowledgeBases, createKnowledgeBase, updateKnowledgeBase, deleteKnowledgeBase,
   deleteDocument,
@@ -483,10 +494,35 @@ const handleViewChunks = async (doc) => {
   align-items: center;
 }
 
+.kb-name {
+  font-size: 16px;
+  font-weight: 700;
+  color: #2c3e50;
+}
+
 .kb-description {
-  margin-bottom: 16px;
+  margin-bottom: 10px;
   color: #666;
   min-height: 40px;
+}
+
+.kb-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 14px;
+  font-size: 13px;
+  color: #555;
+}
+
+.kb-stat-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.kb-stat-item.no-doc {
+  color: #aaa;
 }
 
 .kb-actions {
