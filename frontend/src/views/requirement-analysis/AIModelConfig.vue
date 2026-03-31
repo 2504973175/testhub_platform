@@ -9,7 +9,7 @@
       <!-- 配置列表 -->
       <div class="configs-section">
         <div class="section-header">
-          <h2>模型配置列表</h2>
+          <h2>📚生成模型配置列表</h2>
           <button 
             class="add-config-btn" 
             @click.stop="openAddModal"

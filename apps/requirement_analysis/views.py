@@ -194,6 +194,13 @@ def api_testcase_generation_generate(request):
         return _json_error(500, f"创建生成任务失败: {str(e)}", status=500)
 
 
+def _fmt_dt(dt):
+    """将 UTC datetime 转为本地时间字符串"""
+    if not dt:
+        return None
+    return timezone.localtime(dt).strftime("%Y-%m-%d %H:%M:%S")
+
+
 def _task_to_frontend_payload(task: TestCaseGenerationTask):
     return {
         "task_id": task.task_id,
@@ -208,10 +215,10 @@ def _task_to_frontend_payload(task: TestCaseGenerationTask):
         "is_saved_to_records": task.is_saved_to_records,
         "rag_info": task.rag_info,
         "token_usage": task.token_usage,
-        "created_at": task.created_at.strftime("%Y-%m-%d %H:%M:%S") if task.created_at else None,
-        "updated_at": task.updated_at.strftime("%Y-%m-%d %H:%M:%S") if task.updated_at else None,
-        "started_at": task.started_at.strftime("%Y-%m-%d %H:%M:%S") if task.started_at else None,
-        "completed_at": task.completed_at.strftime("%Y-%m-%d %H:%M:%S") if task.completed_at else None,
+        "created_at": _fmt_dt(task.created_at),
+        "updated_at": _fmt_dt(task.updated_at),
+        "started_at": _fmt_dt(task.started_at),
+        "completed_at": _fmt_dt(task.completed_at),
         "duration_seconds": round((task.completed_at - task.started_at).total_seconds()) if task.completed_at and task.started_at else None,
     }
 

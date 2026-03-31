@@ -79,11 +79,12 @@
               class="task-checkbox">
           </div>
           <div class="header-cell serial-cell">序号</div>
-          <div class="header-cell task-id-cell">任务ID</div>
+
           <div class="header-cell requirement-name-cell">关联需求</div>
-          <div class="header-cell status-cell">状态</div>
           <div class="header-cell count-cell">用例条数</div>
-          <div class="header-cell time-cell">生成时间</div>
+          <div class="header-cell time-cell">开始时间</div>
+          <div class="header-cell time-cell">总耗时</div>
+          <div class="header-cell status-cell">状态</div>
           <div class="header-cell action-cell">操作</div>
         </div>
         
@@ -101,37 +102,38 @@
                 class="task-checkbox">
             </div>
             <div class="body-cell serial-cell">{{ getSerialNumber(index) }}</div>
-            <div class="body-cell task-id-cell">{{ task.task_id }}</div>
+
             <div class="body-cell requirement-name-cell">
               <span class="requirement-name">{{ task.title }}</span>
             </div>
+            <div class="body-cell count-cell">
+              <span class="count-badge">{{ getTestCaseCount(task) }}</span>
+            </div>
+            <div class="body-cell time-cell">{{ task.started_at || '-' }}</div>
+            <div class="body-cell time-cell">{{ task.duration_seconds != null ? task.duration_seconds + ' 秒' : '-' }}</div>
             <div class="body-cell status-cell">
               <span class="status-tag" :class="task.status">
                 {{ getStatusText(task.status) }}
               </span>
             </div>
-            <div class="body-cell count-cell">
-              <span class="count-badge">{{ getTestCaseCount(task) }}</span>
-            </div>
-            <div class="body-cell time-cell">{{ formatDateTime(task.created_at) }}</div>
             <div class="body-cell action-cell">
               <div class="action-buttons">
                 <button 
                   class="view-detail-btn" 
                   @click="viewTaskDetail(task)">
-                  📖 查看详情
+                  📖 详情
                 </button>
                 <button 
                   v-if="task.status === 'completed'"
                   class="adopt-btn" 
                   @click="batchAdoptTask(task)">
-                  ✅ 一键采纳
+                  ✅ 采纳
                 </button>
                 <button 
                   v-if="task.status === 'completed'"
                   class="discard-btn" 
                   @click="batchDiscardTask(task)">
-                  ❌ 一键弃用
+                  ❌ 弃用
                 </button>
               </div>
             </div>
@@ -256,8 +258,16 @@
             <span>{{ selectedTestCaseDetail.reviewed_by_ai }}</span>
           </div>
           <div class="detail-item">
-            <label>生成时间:</label>
-            <span>{{ formatDateTime(selectedTestCaseDetail.created_at) }}</span>
+            <label>开始时间:</label>
+            <span>{{ selectedTestCaseDetail.started_at || '-' }}</span>
+          </div>
+          <div class="detail-item">
+            <label>完成时间:</label>
+            <span>{{ selectedTestCaseDetail.completed_at || '-' }}</span>
+          </div>
+          <div class="detail-item">
+            <label>总耗时:</label>
+            <span>{{ selectedTestCaseDetail.duration_seconds != null ? selectedTestCaseDetail.duration_seconds + ' 秒' : '-' }}</span>
           </div>
         </div>
       </div>
@@ -1182,7 +1192,7 @@ export default {
 
 .table-header {
   display: grid;
-  grid-template-columns: 50px 60px 180px 320px 100px 100px 180px 200px;
+  grid-template-columns: 50px 60px 1fr 90px 100px 160px 120px 280px;
   background: #f8f9fa;
   font-weight: bold;
   color: #2c3e50;
@@ -1190,7 +1200,7 @@ export default {
 
 .table-body .table-row {
   display: grid;
-  grid-template-columns: 50px 60px 180px 320px 100px 100px 180px 200px;
+  grid-template-columns: 50px 60px 1fr 90px 100px 160px 120px 280px;
   border-bottom: 1px solid #eee;
   transition: background 0.2s ease;
 }
@@ -1269,30 +1279,25 @@ export default {
   flex-shrink: 0;
 }
 
-.body-cell.requirement-name-cell {
-  justify-content: flex-start;
-}
+
 
 /* 状态列 */
 .status-cell {
-  width: 100px;
+  justify-content: flex-start;
+  width: 80px;
   flex-shrink: 0;
-}
-
-.body-cell.status-cell {
-  justify-content: center;
 }
 
 /* 用例条数列 */
 .count-cell {
   justify-content: center;
-  width: 100px;
+  width: 70px;
   flex-shrink: 0;
 }
 
 /* 生成时间列 */
 .time-cell {
-  width: 180px;
+  width: 120px;
   flex-shrink: 0;
 }
 
