@@ -169,6 +169,26 @@ def get_documents_by_knowledge_base(request, kb_id):
 
 
 @login_required
+@require_http_methods(["GET"])
+def get_document_chunks(request, doc_id):
+    """获取文档的切分内容"""
+    try:
+        from .knowledge_base_models import KnowledgeEmbedding
+        chunks = KnowledgeEmbedding.objects.filter(document_id=doc_id).order_by('chunk_index')
+        data = [
+            {
+                "chunk_index": c.chunk_index,
+                "chunk_text": c.chunk_text,
+                "metadata": c.metadata,
+            }
+            for c in chunks
+        ]
+        return JsonResponse({"code": 200, "data": data})
+    except Exception as e:
+        return JsonResponse({"code": 500, "message": str(e)})
+
+
+@login_required
 @require_http_methods(["POST"])
 def delete_document(request, doc_id):
     """删除文档"""

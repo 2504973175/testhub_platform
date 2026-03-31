@@ -128,8 +128,9 @@
             </el-table-column>
             <el-table-column prop="embedding_count" label="切分块" width="80" />
             <el-table-column prop="created_at" label="上传时间" width="160" />
-            <el-table-column label="操作" width="100">
+            <el-table-column label="操作" width="160">
               <template #default="{ row }">
+                <el-button size="small" type="primary" @click="handleViewChunks(row)" :disabled="row.embedding_count === 0">查看切片</el-button>
                 <el-button size="small" type="danger" @click="handleDeleteDocument(row)">删除</el-button>
               </template>
             </el-table-column>
@@ -137,6 +138,21 @@
         </div>
       </div>
     </el-drawer>
+
+    <!-- 切片查看弹窗 -->
+    <el-dialog v-model="chunksDialogVisible" :title="`切片内容 — ${currentChunkDoc?.title}`" width="70%" top="5vh">
+      <div v-if="chunksLoading" style="text-align:center;padding:40px">
+        <el-icon class="is-loading"><Loading /></el-icon> 加载中...
+      </div>
+      <div v-else-if="chunks.length === 0" style="text-align:center;color:#999;padding:40px">暂无切片数据</div>
+      <div v-else class="chunks-list">
+        <el-collapse>
+          <el-collapse-item v-for="chunk in chunks" :key="chunk.chunk_index" :title="`切片 #${chunk.chunk_index + 1}`" :name="chunk.chunk_index">
+            <pre class="chunk-text">{{ chunk.chunk_text }}</pre>
+          </el-collapse-item>
+        </el-collapse>
+      </div>
+    </el-dialog>
 
     <!-- 新建文件夹对话框 -->
     <el-dialog title="新建文件夹" v-model="showAddFolderDialog" width="400px">
@@ -183,13 +199,14 @@
 <script setup>
 import { ref, onMounted, watch } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Plus, Delete, Upload, Folder, FolderOpened, FolderAdd } from '@element-plus/icons-vue'
+import { Plus, Delete, Upload, Folder, FolderOpened, FolderAdd, Loading } from '@element-plus/icons-vue'
 import {
   getKnowledgeBases, createKnowledgeBase, updateKnowledgeBase, deleteKnowledgeBase,
   deleteDocument,
   getFolders, createFolder, getDocumentsByFolder, uploadDocumentToFolder,
   getDocumentsByKnowledgeBase
 } from '@/api/knowledge-base'
+import api from '@/utils/api'
 
 // ── 知识库列表 ──────────────────────────────────────────
 const knowledgeBases = ref([])
@@ -389,9 +406,46 @@ const getStatusTagType = (status) => {
 }
 
 onMounted(fetchKnowledgeBases)
+
+// ── 切片查看 ─────────────────────────────────────────────
+const chunksDialogVisible = ref(false)
+const chunksLoading = ref(false)
+const chunks = ref([])
+const currentChunkDoc = ref(null)
+
+const handleViewChunks = async (doc) => {
+  currentChunkDoc.value = doc
+  chunksDialogVisible.value = true
+  chunksLoading.value = true
+  try {
+    const res = await api.get(`/requirement-analysis/knowledge-bases/documents/${doc.id}/chunks/`)
+    chunks.value = res.data.data || []
+  } catch {
+    ElMessage.error('获取切片内容失败')
+    chunks.value = []
+  } finally {
+    chunksLoading.value = false
+  }
+}
 </script>
 
 <style scoped>
+.chunk-text {
+  white-space: pre-wrap;
+  word-break: break-all;
+  font-size: 13px;
+  line-height: 1.6;
+  background: #f8f9fa;
+  padding: 12px;
+  border-radius: 4px;
+  margin: 0;
+}
+
+.chunks-list {
+  max-height: 65vh;
+  overflow-y: auto;
+}
+
 .knowledge-base-container {
   padding: 20px;
 }

@@ -44,6 +44,7 @@ urlpatterns = [
     path('knowledge-bases/<int:kb_id>/folders/documents/', knowledge_base_views.get_documents_by_folder, name='get_documents_by_folder'),
     path('knowledge-bases/<int:kb_id>/folders/upload/', knowledge_base_views.upload_document_to_folder, name='upload_document_to_folder'),
     path('knowledge-bases/documents/<int:doc_id>/delete/', knowledge_base_views.delete_document, name='delete_document'),
+    path('knowledge-bases/documents/<int:doc_id>/chunks/', knowledge_base_views.get_document_chunks, name='get_document_chunks'),
     
     # RAG检索相关
     path('rag/retrieve/', views.rag_retrieve, name='rag_retrieve'),
