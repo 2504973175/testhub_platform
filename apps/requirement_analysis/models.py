@@ -316,6 +316,11 @@ class TestCaseGenerationTask(models.Model):
     review_feedback = models.TextField(blank=True, verbose_name='评审反馈')
     final_test_cases = models.TextField(blank=True, verbose_name='最终测试用例')
     
+    # RAG引用信息
+    rag_info = models.JSONField(null=True, blank=True, verbose_name='RAG引用信息')
+    # Token消耗统计
+    token_usage = models.JSONField(null=True, blank=True, verbose_name='Token消耗统计')
+
     # 元数据
     generation_log = models.TextField(blank=True, verbose_name='生成日志')
     error_message = models.TextField(blank=True, verbose_name='错误信息')

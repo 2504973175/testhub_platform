@@ -16,9 +16,13 @@ urlpatterns = [
 
     path('api/testcase-generation/', views.api_testcase_generation_list, name='api_testcase_generation_list'),
     path('api/testcase-generation/generate/', views.api_testcase_generation_generate, name='api_testcase_generation_generate'),
-    path('api/testcase-generation/<str:task_id>/', views.api_testcase_generation_item, name='api_testcase_generation_item'),
     path('api/testcase-generation/<str:task_id>/progress/', views.api_testcase_generation_progress, name='api_testcase_generation_progress'),
     path('api/testcase-generation/<str:task_id>/save_to_records/', views.api_testcase_generation_save_to_records, name='api_testcase_generation_save_to_records'),
+    path('api/testcase-generation/<str:task_id>/batch_adopt_selected/', views.api_testcase_generation_batch_adopt, name='api_testcase_generation_batch_adopt'),
+    path('api/testcase-generation/<str:task_id>/discard_selected_cases/', views.api_testcase_generation_discard_selected, name='api_testcase_generation_discard_selected'),
+    path('api/testcase-generation/<str:task_id>/discard_single_case/', views.api_testcase_generation_discard_single, name='api_testcase_generation_discard_single'),
+    path('api/testcase-generation/<str:task_id>/update_test_cases/', views.api_testcase_generation_update_cases, name='api_testcase_generation_update_cases'),
+    path('api/testcase-generation/<str:task_id>/', views.api_testcase_generation_item, name='api_testcase_generation_item'),
 
     # AI用例生成相关
     path('ai-cases/', views.get_ai_cases, name='get_ai_cases'),

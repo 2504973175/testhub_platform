@@ -100,7 +100,6 @@ def _run_generation_task(
     简易后台线程执行生成（不依赖 Celery）。
     """
     try:
-        # 在同步上下文一次性加载所有外键，避免 async 阶段触发 ORM 懒加载
         task = TestCaseGenerationTask.objects.select_related(
             "writer_model_config",
             "reviewer_model_config",
@@ -114,7 +113,7 @@ def _run_generation_task(
         task.save(update_fields=["status", "progress", "generation_log", "updated_at"])
 
         if use_writer_model:
-            generated = asyncio.run(
+            generated, rag_info, writer_usage = asyncio.run(
                 AIModelService.generate_test_cases(
                     task,
                     knowledge_base_id=knowledge_base_id,
@@ -122,22 +121,32 @@ def _run_generation_task(
                 )
             )
         else:
-            generated = ""
+            generated, rag_info, writer_usage = "", None, {}
 
         task.generated_test_cases = generated or ""
+        task.rag_info = rag_info
+        task.token_usage = {
+            "writer": writer_usage,
+            "reviewer": {},
+            "total_tokens": writer_usage.get("total_tokens", 0),
+        }
         task.status = "reviewing" if use_reviewer_model else "completed"
         task.progress = 70 if use_reviewer_model else 100
-        task.save(update_fields=["generated_test_cases", "status", "progress", "updated_at"])
+        task.save(update_fields=["generated_test_cases", "rag_info", "token_usage", "status", "progress", "updated_at"])
 
         if use_reviewer_model:
-            review_feedback = asyncio.run(AIModelService.review_test_cases(task, task.generated_test_cases))
+            review_feedback, reviewer_usage = asyncio.run(AIModelService.review_test_cases(task, task.generated_test_cases))
             task.review_feedback = review_feedback or ""
-            # 前端主要消费 final_test_cases，这里保持“用例内容”为主，评审意见单独放 review_feedback
             task.final_test_cases = task.generated_test_cases
             task.status = "completed"
             task.progress = 100
             task.completed_at = timezone.now()
-            task.save(update_fields=["review_feedback", "final_test_cases", "status", "progress", "completed_at", "updated_at"])
+            task.token_usage = {
+                "writer": writer_usage,
+                "reviewer": reviewer_usage,
+                "total_tokens": writer_usage.get("total_tokens", 0) + reviewer_usage.get("total_tokens", 0),
+            }
+            task.save(update_fields=["review_feedback", "final_test_cases", "token_usage", "status", "progress", "completed_at", "updated_at"])
         else:
             task.final_test_cases = task.generated_test_cases
             task.completed_at = timezone.now()
@@ -153,7 +162,6 @@ def _run_generation_task(
             task.completed_at = timezone.now()
             task.save(update_fields=["status", "error_message", "progress", "completed_at", "updated_at"])
         except Exception:
-            # 如果连任务都取不到，忽略
             pass
 
 
@@ -233,6 +241,8 @@ def _task_to_frontend_payload(task: TestCaseGenerationTask):
         "final_test_cases": task.final_test_cases,
         "error_message": task.error_message,
         "is_saved_to_records": task.is_saved_to_records,
+        "rag_info": task.rag_info,
+        "token_usage": task.token_usage,
         "created_at": task.created_at.strftime("%Y-%m-%d %H:%M:%S") if task.created_at else None,
         "updated_at": task.updated_at.strftime("%Y-%m-%d %H:%M:%S") if task.updated_at else None,
         "completed_at": task.completed_at.strftime("%Y-%m-%d %H:%M:%S") if task.completed_at else None,
@@ -342,9 +352,6 @@ def api_testcase_generation_save_to_records(request, task_id: str):
         return _json_error(404, "任务不存在", status=404)
 
 
-# AI用例生成相关视图函数
-@login_required
-@require_http_methods(["GET"])
 def get_ai_cases(request):
     """获取AI用例生成任务列表"""
     try:
@@ -1123,3 +1130,153 @@ def test_vector_model_connection(request):
     except Exception as e:
         logger.error(f"测试向量模型连接失败: {e}")
         return JsonResponse({"code": 500, "message": f"连接测试失败: {str(e)}"})
+
+
+# -------------------------------------------------------
+# 任务详情页自定义操作接口
+# -------------------------------------------------------
+
+@login_required
+@require_http_methods(["POST"])
+def api_testcase_generation_batch_adopt(request, task_id: str):
+    """批量采纳测试用例，保存到 testcases 表"""
+    from apps.testcases.models import TestCase
+    try:
+        task = TestCaseGenerationTask.objects.get(task_id=task_id, created_by=request.user)
+        data = json.loads(request.body or "{}")
+        test_cases = data.get("test_cases", [])
+
+        if not test_cases:
+            return _json_error(400, "test_cases 不能为空", status=400)
+
+        if not task.project:
+            return _json_error(400, "该任务未关联项目，无法采纳用例。请在生成任务时选择项目。", status=400)
+
+        created = []
+        for tc in test_cases:
+            obj = TestCase.objects.create(
+                title=tc.get("title") or "未命名用例",
+                description=tc.get("description") or "",
+                preconditions=tc.get("preconditions") or "",
+                steps=tc.get("steps") or "",
+                expected_result=tc.get("expected_result") or "",
+                priority=tc.get("priority") or "medium",
+                test_type=tc.get("test_type") or "functional",
+                status=tc.get("status") or "draft",
+                project=task.project,
+                author=request.user,
+            )
+            created.append(obj.id)
+
+        return JsonResponse({"imported_count": len(created), "ids": created})
+    except TestCaseGenerationTask.DoesNotExist:
+        return _json_error(404, "任务不存在", status=404)
+    except Exception as e:
+        logger.error(f"批量采纳失败: {e}", exc_info=True)
+        return _json_error(500, f"批量采纳失败: {str(e)}", status=500)
+
+
+@login_required
+@require_http_methods(["POST"])
+def api_testcase_generation_discard_selected(request, task_id: str):
+    """批量弃用（从 final_test_cases 中删除指定索引的用例）"""
+    try:
+        task = TestCaseGenerationTask.objects.get(task_id=task_id, created_by=request.user)
+        data = json.loads(request.body or "{}")
+        indices = set(data.get("case_indices", []))
+
+        if not task.final_test_cases:
+            return JsonResponse({"discarded_count": 0, "updated_test_cases": ""})
+
+        lines = task.final_test_cases.split("\n")
+        # 表格格式：第0行是表头，第1行是分隔线，从第2行开始是数据
+        header_lines = []
+        data_lines = []
+        for i, line in enumerate(lines):
+            stripped = line.strip()
+            if i < 2 or not stripped:
+                header_lines.append(line)
+            else:
+                data_lines.append(line)
+
+        kept = [line for i, line in enumerate(data_lines) if i not in indices]
+        updated = "\n".join(header_lines + kept)
+
+        if not any(l.strip() for l in kept):
+            # 全部弃用，删除任务
+            task.delete()
+            return JsonResponse({"task_deleted": True, "discarded_count": len(indices)})
+
+        task.final_test_cases = updated
+        task.generated_test_cases = updated
+        task.save(update_fields=["final_test_cases", "generated_test_cases", "updated_at"])
+        return JsonResponse({
+            "discarded_count": len(indices),
+            "updated_test_cases": updated,
+            "task_deleted": False,
+        })
+    except TestCaseGenerationTask.DoesNotExist:
+        return _json_error(404, "任务不存在", status=404)
+    except Exception as e:
+        logger.error(f"批量弃用失败: {e}", exc_info=True)
+        return _json_error(500, f"批量弃用失败: {str(e)}", status=500)
+
+
+@login_required
+@require_http_methods(["POST"])
+def api_testcase_generation_discard_single(request, task_id: str):
+    """弃用单条测试用例"""
+    try:
+        task = TestCaseGenerationTask.objects.get(task_id=task_id, created_by=request.user)
+        data = json.loads(request.body or "{}")
+        case_index = data.get("case_index")
+
+        if case_index is None:
+            return _json_error(400, "case_index 不能为空", status=400)
+
+        lines = task.final_test_cases.split("\n") if task.final_test_cases else []
+        header_lines = []
+        data_lines = []
+        for i, line in enumerate(lines):
+            stripped = line.strip()
+            if i < 2 or not stripped:
+                header_lines.append(line)
+            else:
+                data_lines.append(line)
+
+        if case_index < len(data_lines):
+            data_lines.pop(case_index)
+
+        if not any(l.strip() for l in data_lines):
+            task.delete()
+            return JsonResponse({"task_deleted": True})
+
+        updated = "\n".join(header_lines + data_lines)
+        task.final_test_cases = updated
+        task.generated_test_cases = updated
+        task.save(update_fields=["final_test_cases", "generated_test_cases", "updated_at"])
+        return JsonResponse({"task_deleted": False, "updated_test_cases": updated})
+    except TestCaseGenerationTask.DoesNotExist:
+        return _json_error(404, "任务不存在", status=404)
+    except Exception as e:
+        logger.error(f"弃用用例失败: {e}", exc_info=True)
+        return _json_error(500, f"弃用用例失败: {str(e)}", status=500)
+
+
+@login_required
+@require_http_methods(["POST"])
+def api_testcase_generation_update_cases(request, task_id: str):
+    """更新任务的测试用例内容"""
+    try:
+        task = TestCaseGenerationTask.objects.get(task_id=task_id, created_by=request.user)
+        data = json.loads(request.body or "{}")
+        final_test_cases = data.get("final_test_cases", "")
+        task.final_test_cases = final_test_cases
+        task.generated_test_cases = final_test_cases
+        task.save(update_fields=["final_test_cases", "generated_test_cases", "updated_at"])
+        return JsonResponse({"success": True})
+    except TestCaseGenerationTask.DoesNotExist:
+        return _json_error(404, "任务不存在", status=404)
+    except Exception as e:
+        logger.error(f"更新用例失败: {e}", exc_info=True)
+        return _json_error(500, f"更新用例失败: {str(e)}", status=500)
