@@ -660,18 +660,31 @@ def load_default_prompts(request):
 @login_required
 @require_http_methods(["GET"])
 def get_vector_model_config(request):
-    from django.conf import settings
-    config = {
-        "provider": getattr(settings, "EMBEDDING_PROVIDER", "openai"),
-        "model": getattr(settings, "EMBEDDING_MODEL", "text-embedding-ada-002"),
-        "base_url": getattr(settings, "EMBEDDING_BASE_URL", ""),
-    }
-    return JsonResponse({"code": 200, "data": config})
+    from .models import VectorModelConfig
+    cfg = VectorModelConfig.get_config()
+    return JsonResponse({"code": 200, "data": {
+        "provider": cfg.provider,
+        "model": cfg.model,
+        "api_key": "********" if cfg.api_key else "",
+        "has_api_key": bool(cfg.api_key),
+        "api_base": cfg.api_base,
+        "dimension": cfg.dimension,
+    }})
 
 
 @login_required
 @require_http_methods(["POST"])
 def update_vector_model_config(request):
+    from .models import VectorModelConfig
+    data = json.loads(request.body)
+    cfg = VectorModelConfig.get_config()
+    if "provider" in data: cfg.provider = data["provider"]
+    if "model" in data: cfg.model = data["model"]
+    if "api_key" in data and data["api_key"] and "*" not in data["api_key"]:
+        cfg.api_key = data["api_key"]
+    if "api_base" in data: cfg.api_base = data["api_base"]
+    if "dimension" in data: cfg.dimension = data["dimension"]
+    cfg.save()
     return JsonResponse({"code": 200, "message": "向量模型配置已更新"})
 
 
