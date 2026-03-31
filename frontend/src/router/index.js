@@ -343,6 +343,11 @@ const routes = [
             path: 'dify',
             name: 'DifyConfig',
             component: () => import('@/views/configuration/DifyConfig.vue')
+          },
+          {
+            path: 'prompt-config',
+            name: 'ConfigPrompt',
+            component: () => import('@/views/requirement-analysis/PromptConfig.vue')
           }
         ]
       }
