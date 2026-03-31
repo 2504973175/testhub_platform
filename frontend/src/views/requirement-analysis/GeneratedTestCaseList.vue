@@ -107,6 +107,12 @@
             <div class="body-cell requirement-name-cell">
               <span class="requirement-name">{{ task.title }}</span>
             </div>
+            <div class="body-cell rag-cell">
+              <span v-if="task.rag_info" class="rag-badge" :title="`参考「${task.rag_info.knowledge_base_name}」${task.rag_info.chunk_count}个片段`">
+                🔍 RAG
+              </span>
+              <span v-else class="no-rag">-</span>
+            </div>
             <div class="body-cell count-cell">
               <span class="count-badge">{{ getTestCaseCount(task) }}</span>
             </div>
@@ -1193,7 +1199,7 @@ export default {
 
 .table-header {
   display: grid;
-  grid-template-columns: 50px 60px 1fr 90px 100px 160px 120px 280px;
+  grid-template-columns: 50px 60px 1fr auto 90px 100px 160px 120px 280px;
   background: #f8f9fa;
   font-weight: bold;
   color: #2c3e50;
@@ -1201,7 +1207,7 @@ export default {
 
 .table-body .table-row {
   display: grid;
-  grid-template-columns: 50px 60px 1fr 90px 100px 160px 120px 280px;
+  grid-template-columns: 50px 60px 1fr auto 90px 100px 160px 120px 280px;
   border-bottom: 1px solid #eee;
   transition: background 0.2s ease;
 }
@@ -1281,6 +1287,22 @@ export default {
 }
 
 
+
+.rag-badge {
+  display: inline-block;
+  padding: 2px 7px;
+  background: #e8f4fd;
+  color: #1a73e8;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: default;
+}
+
+.no-rag {
+  color: #ccc;
+}
 
 /* 状态列 */
 .status-cell {
