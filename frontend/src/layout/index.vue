@@ -22,7 +22,6 @@
               </template>
               <el-menu-item index="/ai-generation/requirement-analysis">AI用例生成</el-menu-item>
               <el-menu-item index="/ai-generation/generated-testcases">AI生成用例记录</el-menu-item>
-              <el-menu-item index="/ai-generation/prompt-config">提示词配置</el-menu-item>
               <el-menu-item index="/ai-generation/knowledge-base">知识库管理</el-menu-item>
             </el-sub-menu>
              <el-menu-item index="/ai-generation/testcases">
@@ -148,6 +147,10 @@
               <el-icon><Cpu /></el-icon>
               <span>AI用例生成模型配置</span>
             </el-menu-item>
+            <el-menu-item index="/configuration/prompt-config">
+              <el-icon><EditPen /></el-icon>
+              <span>提示词配置</span>
+            </el-menu-item>
             
           </template>
         </el-menu>
@@ -200,7 +203,7 @@ import { ElMessage } from 'element-plus'
 import { 
   Monitor, Folder, Document, Flag, Check, Collection, VideoPlay, 
   DataAnalysis, ChatDotRound, DocumentCopy, Link, MagicStick,
-  Odometer, Timer, Setting, AlarmClock, Bell, Aim, Edit, Cpu
+  Odometer, Timer, Setting, AlarmClock, Bell, Aim, Edit, Cpu, EditPen
 } from '@element-plus/icons-vue'
 
 const router = useRouter()
@@ -232,7 +235,6 @@ const breadcrumbTitle = computed(() => {
     // AI用例生成
     '/ai-generation/requirement-analysis': 'AI用例生成',
     '/ai-generation/generated-testcases': 'AI生成用例记录',
-    '/ai-generation/prompt-config': '提示词配置',
     '/ai-generation/projects': '项目管理',
     '/ai-generation/testcases': '测试用例',
     '/ai-generation/versions': '版本管理',
@@ -274,6 +276,7 @@ const breadcrumbTitle = computed(() => {
     
     // 配置中心
     '/configuration/ai-model': 'AI用例生成模型配置',
+    '/configuration/prompt-config': '提示词配置',
     '/configuration/ui-env': 'UI环境配置',
     '/configuration/ai-mode': 'AI智能模式配置',
     '/configuration/scheduled-task': '定时任务配置',
