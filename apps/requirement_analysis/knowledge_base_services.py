@@ -334,7 +334,7 @@ class KnowledgeBaseService:
     @staticmethod
     def get_knowledge_base_list() -> List[KnowledgeBase]:
         """获取知识库列表"""
-        return KnowledgeBase.objects.filter(is_active=True).order_by('-created_at')
+        return KnowledgeBase.objects.all().order_by('-created_at')
     
     @staticmethod
     def get_knowledge_base(knowledge_base_id: int) -> KnowledgeBase:

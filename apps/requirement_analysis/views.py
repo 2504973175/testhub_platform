@@ -608,8 +608,12 @@ def create_prompt(request):
 
 
 @login_required
-@require_http_methods(["GET"])
+@require_http_methods(["GET", "PUT", "PATCH", "DELETE"])
 def get_prompt_detail(request, id):
+    if request.method in ("PUT", "PATCH"):
+        return update_prompt(request, id)
+    if request.method == "DELETE":
+        return delete_prompt(request, id)
     try:
         p = PromptConfig.objects.get(id=id)
         return JsonResponse({"code": 200, "data": {"id": p.id, "name": p.name,
