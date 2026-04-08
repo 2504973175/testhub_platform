@@ -53,13 +53,7 @@
         本次生成共消耗
         <strong>{{ task.token_usage.total_tokens?.toLocaleString() }}</strong>
         tokens
-        <span v-if="task.token_usage.writer?.total_tokens" class="token-detail">
-          （编写 {{ task.token_usage.writer.prompt_tokens?.toLocaleString() }} 输入 + {{ task.token_usage.writer.completion_tokens?.toLocaleString() }} 输出
-          <template v-if="task.token_usage.reviewer?.total_tokens">
-            ，评审 {{ task.token_usage.reviewer.prompt_tokens?.toLocaleString() }} 输入 + {{ task.token_usage.reviewer.completion_tokens?.toLocaleString() }} 输出
-          </template>
-          ）
-        </span>
+       
       </span>
     </div>
 

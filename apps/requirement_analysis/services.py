@@ -26,33 +26,76 @@ logger = logging.getLogger(__name__)
 
 class DocumentProcessor:
     """文档处理服务"""
-    
+
+    @staticmethod
+    def extract_text_with_tencent(file_path: str, file_type: str) -> str:
+        """使用腾讯云 ReconstructDocumentSSE 解析文档，返回 Markdown 文本"""
+        import base64
+        import zipfile
+        import io
+        import httpx
+        from tencentcloud.common import credential
+        from tencentcloud.lkeap.v20240522 import lkeap_client, models as lkeap_models
+
+        cred = credential.Credential(settings.TENCENT_SECRET_ID, settings.TENCENT_SECRET_KEY)
+        client = lkeap_client.LkeapClient(cred, "ap-beijing")
+
+        with open(file_path, "rb") as f:
+            file_b64 = base64.b64encode(f.read()).decode("utf-8")
+
+        req = lkeap_models.ReconstructDocumentSSERequest()
+        req.FileType = file_type.upper()
+        req.FileBase64 = file_b64
+
+        result_url = None
+        for resp in client.ReconstructDocumentSSE(req):
+            if str(resp.ResponseType) == "2" and resp.DocumentRecognizeResultUrl:
+                result_url = resp.DocumentRecognizeResultUrl
+                break
+
+        if not result_url:
+            raise Exception("腾讯云文档解析未返回结果URL")
+
+        zip_bytes = httpx.get(result_url, timeout=60).content
+        with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
+            md_files = [n for n in zf.namelist() if n.endswith(".md")]
+            if not md_files:
+                raise Exception("解析结果中未找到 .md 文件")
+            text = zf.read(md_files[0]).decode("utf-8")
+
+        return text.strip()
+
     @staticmethod
     def extract_text_from_pdf(file_path: str) -> str:
         """从PDF文件提取文本"""
         try:
-            text = ""
-            with open(file_path, 'rb') as file:
-                pdf_reader = PdfReader(file)
-                for page in pdf_reader.pages:
-                    text += page.extract_text() + "\n"
-            return text.strip()
+            return DocumentProcessor.extract_text_with_tencent(file_path, "PDF")
         except Exception as e:
-            logger.error(f"PDF文本提取失败: {e}")
-            return f"PDF文本提取失败: {str(e)}"
-    
+            logger.error(f"腾讯云PDF解析失败，降级本地解析: {e}")
+            try:
+                text = ""
+                with open(file_path, 'rb') as file:
+                    pdf_reader = PdfReader(file)
+                    for page in pdf_reader.pages:
+                        text += page.extract_text() + "\n"
+                return text.strip()
+            except Exception as e2:
+                logger.error(f"本地PDF解析也失败: {e2}")
+                return ""
+
     @staticmethod
     def extract_text_from_docx(file_path: str) -> str:
         """从Word文档提取文本"""
         try:
-            doc = docx.Document(file_path)
-            text = ""
-            for paragraph in doc.paragraphs:
-                text += paragraph.text + "\n"
-            return text.strip()
+            return DocumentProcessor.extract_text_with_tencent(file_path, "DOCX")
         except Exception as e:
-            logger.error(f"Word文档文本提取失败: {e}")
-            return f"Word文档文本提取失败: {str(e)}"
+            logger.error(f"腾讯云DOCX解析失败，降级本地解析: {e}")
+            try:
+                doc = docx.Document(file_path)
+                return "\n".join(p.text for p in doc.paragraphs).strip()
+            except Exception as e2:
+                logger.error(f"本地DOCX解析也失败: {e2}")
+                return ""
     
     @staticmethod
     def extract_text_from_txt(file_path: str) -> str:
@@ -66,10 +109,10 @@ class DocumentProcessor:
                     return file.read().strip()
             except Exception as e:
                 logger.error(f"文本文件读取失败: {e}")
-                return f"文本文件读取失败: {str(e)}"
+                return ""
         except Exception as e:
             logger.error(f"文本文件读取失败: {e}")
-            return f"文本文件读取失败: {str(e)}"
+            return ""
     
     @classmethod
     def extract_text(cls, document: RequirementDocument) -> str:

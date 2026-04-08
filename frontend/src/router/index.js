@@ -10,7 +10,7 @@ import ProjectList from '@/views/projects/ProjectList.vue'
 const routes = [
   {
     path: '/',
-    redirect: '/home'
+    redirect: '/ai-generation/requirement-analysis'
   },
   {
     path: '/home',
@@ -49,6 +49,21 @@ const routes = [
         path: 'requirement-analysis',
         name: 'RequirementAnalysis',
         component: () => import('@/views/requirement-analysis/RequirementAnalysisView.vue')
+      },
+      {
+        path: 'agent-config',
+        name: 'AgentConfig',
+        component: () => import('@/views/ai-generation/AgentConfig.vue')
+      },
+      {
+        path: 'agent-chat/:id',
+        name: 'AgentChat',
+        component: () => import('@/views/ai-generation/AgentChat.vue')
+      },
+      {
+        path: 'agent-dialog',
+        name: 'AgentDialog',
+        component: () => import('@/views/ai-generation/AgentDialog.vue')
       },
       {
         path: 'projects',
@@ -390,7 +405,7 @@ router.beforeEach(async (to, from, next) => {
     next('/login')
   } else if (to.meta.requiresGuest && userStore.isAuthenticated) {
     console.log('访客页面但已认证，跳转到项目页')
-    next('/home')
+    next('/ai-generation/requirement-analysis')
   } else {
     console.log('路由守卫通过，继续导航')
     next()

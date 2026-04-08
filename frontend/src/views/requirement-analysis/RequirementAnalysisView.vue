@@ -39,18 +39,7 @@
                 </option>
               </select>
             </div>
-
-            <div class="form-group">
-              <label>知识库（可选，用于RAG增强）</label>
-              <select v-model="manualInput.selectedKnowledgeBase" class="form-select">
-                <option value="">不使用知识库</option>
-                <option value="all">📚 所有知识库</option>
-                <option v-for="kb in knowledgeBases" :key="kb.id" :value="kb.id">
-                  {{ kb.name }}
-                </option>
-              </select>
-            </div>
-
+<!-- 注释内容 
             <div class="form-group">
               <label>自定义提示词（可选）</label>
               <textarea
@@ -59,7 +48,7 @@
                 rows="4"
                 placeholder="可输入你自己的提示词，作为本次生成的系统提示词使用"></textarea>
             </div>
-
+-->
             <button 
               class="generate-manual-btn" 
               @click="generateFromManualInput"
@@ -132,18 +121,7 @@
                 </option>
               </select>
             </div>
-
-            <div class="form-group">
-              <label>知识库（可选，用于RAG增强）</label>
-              <select v-model="selectedKnowledgeBase" class="form-select">
-                <option value="">不使用知识库</option>
-                <option value="all">📚 所有知识库</option>
-                <option v-for="kb in knowledgeBases" :key="kb.id" :value="kb.id">
-                  {{ kb.name }}
-                </option>
-              </select>
-            </div>
-
+<!-- 注释内容 
             <div class="form-group">
               <label>自定义提示词（可选）</label>
               <textarea
@@ -152,7 +130,7 @@
                 rows="4"
                 placeholder="可输入你自己的提示词，作为本次生成的系统提示词使用"></textarea>
             </div>
-
+-->
             <button 
               class="generate-btn" 
               @click="generateFromDocument"
@@ -277,7 +255,6 @@ export default {
         title: '',
         description: '',
         selectedProject: '',
-        selectedKnowledgeBase: '',
         customPrompt: ''
       },
       
@@ -285,10 +262,8 @@ export default {
       selectedFile: null,
       documentTitle: '',
       selectedProject: '',
-      selectedKnowledgeBase: '',
       customPrompt: '',
       projects: [],
-      knowledgeBases: [],
       isDragOver: false,
       
       // 生成状态
@@ -314,7 +289,6 @@ export default {
   
   mounted() {
     this.loadProjects()
-    this.loadKnowledgeBases()
   },
   
   beforeUnmount() {
@@ -328,17 +302,12 @@ export default {
       try {
         const response = await api.get('/projects/')
         this.projects = response.data.results || response.data
+        if (this.projects.length > 0) {
+          this.selectedProject = this.projects[0].id
+          this.manualInput.selectedProject = this.projects[0].id
+        }
       } catch (error) {
         console.error('加载项目失败:', error)
-      }
-    },
-
-    async loadKnowledgeBases() {
-      try {
-        const response = await api.get('/requirement-analysis/knowledge-bases/')
-        this.knowledgeBases = response.data?.data || []
-      } catch (error) {
-        console.error('加载知识库失败:', error)
       }
     },
 
@@ -397,7 +366,6 @@ export default {
         this.manualInput.title,
         requirementText,
         this.manualInput.selectedProject,
-        this.manualInput.selectedKnowledgeBase,
         this.manualInput.customPrompt
       )
     },
@@ -444,7 +412,6 @@ export default {
           this.documentTitle,
           requirementText,
           this.selectedProject,
-          this.selectedKnowledgeBase,
           this.customPrompt
         )
 
@@ -454,13 +421,12 @@ export default {
       }
     },
 
-    async startGeneration(title, requirementText, projectId, knowledgeBaseId, customPrompt) {
+    async startGeneration(title, requirementText, projectId, customPrompt) {
       this.isGenerating = true
       this.currentStep = 1
       this.progressText = '正在创建生成任务...'
 
       try {
-        // 调用新的生成API
         const requestData = {
           title: title,
           requirement_text: requirementText,
@@ -468,13 +434,8 @@ export default {
           use_reviewer_model: true
         }
         
-        // 如果选择了项目，添加到请求中
         if (projectId) {
           requestData.project = projectId
-        }
-
-        if (knowledgeBaseId) {
-          requestData.knowledge_base_id = knowledgeBaseId
         }
 
         if (customPrompt && customPrompt.trim()) {

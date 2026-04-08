@@ -160,24 +160,14 @@ def api_testcase_generation_generate(request):
         if not requirement_text.strip():
             return _json_error(400, "requirement_text 不能为空", status=400)
 
-        writer_model = AIModelConfig.objects.filter(role="writer", is_active=True).first()
-        reviewer_model = AIModelConfig.objects.filter(role="reviewer", is_active=True).first()
-        writer_prompt = PromptConfig.objects.filter(prompt_type="writer", is_active=True).first()
-        reviewer_prompt = PromptConfig.objects.filter(prompt_type="reviewer", is_active=True).first()
-
-        if use_writer_model and (not writer_model or not writer_prompt):
-            return _json_error(400, "未配置可用的编写模型或编写提示词", status=400)
-        if use_reviewer_model and (not reviewer_model or not reviewer_prompt):
-            return _json_error(400, "未配置可用的评审模型或评审提示词", status=400)
-
         task_id = f"tcg_{uuid.uuid4().hex[:12]}"
         task = TestCaseGenerationTask.objects.create(
             task_id=task_id, title=title, requirement_text=requirement_text,
             status="pending", progress=0, project_id=project_id or None,
-            writer_model_config=writer_model if use_writer_model else None,
-            reviewer_model_config=reviewer_model if use_reviewer_model else None,
-            writer_prompt_config=writer_prompt if use_writer_model else None,
-            reviewer_prompt_config=reviewer_prompt if use_reviewer_model else None,
+            writer_model_config=None,
+            reviewer_model_config=None,
+            writer_prompt_config=None,
+            reviewer_prompt_config=None,
             created_by=request.user,
         )
 

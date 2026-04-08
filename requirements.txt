@@ -71,3 +71,6 @@ browser-use==0.10.1
 
 # JWT 安全机制
 djangorestframework-simplejwt==5.5.1
+
+# 腾讯云智能体
+tencentcloud-sdk-python>=3.0.0

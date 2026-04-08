@@ -6,6 +6,7 @@
 from django.urls import path
 from . import views
 from . import knowledge_base_views
+from . import agent_views
 
 urlpatterns = [
     # -----------------------------
@@ -66,6 +67,12 @@ urlpatterns = [
     path('prompts/<int:id>/delete/', views.delete_prompt, name='delete_prompt'),
     path('prompts/load_defaults/', views.load_default_prompts, name='load_default_prompts'),
     
+    # 智能体配置
+    path('agents/', agent_views.list_agents, name='list_agents'),
+    path('agents/create/', agent_views.create_agent, name='create_agent'),
+    path('agents/<int:pk>/', agent_views.agent_detail, name='agent_detail'),
+    path('agents/<int:pk>/chat/', agent_views.agent_chat, name='agent_chat'),
+
     # 向量模型配置相关
     path('vector-model-config/', views.get_vector_model_config, name='get_vector_model_config'),
     path('vector-model-config/update/', views.update_vector_model_config, name='update_vector_model_config'),
