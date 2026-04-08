@@ -22,12 +22,13 @@
               </template>
               <el-menu-item index="/ai-generation/requirement-analysis">AI用例生成</el-menu-item>
               <el-menu-item index="/ai-generation/generated-testcases">AI生成用例记录</el-menu-item>
-              <el-menu-item index="/ai-generation/knowledge-base">知识库管理</el-menu-item>
+             
             </el-sub-menu>
              <el-menu-item index="/ai-generation/testcases">
               <el-icon><Document /></el-icon>
               <span>测试用例</span>
             </el-menu-item>
+          
             <el-menu-item index="/ai-generation/projects">
               <el-icon><Folder /></el-icon>
               <span>项目管理</span>
@@ -235,6 +236,8 @@ const breadcrumbTitle = computed(() => {
     // AI用例生成
     '/ai-generation/requirement-analysis': 'AI用例生成',
     '/ai-generation/generated-testcases': 'AI生成用例记录',
+    '/ai-generation/agent-config': '智能体配置',
+    '/ai-generation/agent-dialog': '智能体对话',
     '/ai-generation/projects': '项目管理',
     '/ai-generation/testcases': '测试用例',
     '/ai-generation/versions': '版本管理',

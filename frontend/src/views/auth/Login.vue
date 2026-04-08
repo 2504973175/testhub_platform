@@ -217,7 +217,7 @@ const handleLogin = async () => {
         console.log('准备跳转到 /home')
 
         // 使用replace而不是push，避免返回登录页
-        await router.replace('/home')
+        await router.replace('/ai-generation/requirement-analysis')
         console.log('跳转完成')
 
       } catch (error) {

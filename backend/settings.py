@@ -371,3 +371,9 @@ SIMPLEUI_ICON = {
     '生成的测试用例': 'el-icon-document',
     '需求文档': 'el-icon-document',
 }
+
+# 腾讯云智能体配置
+TENCENT_SECRET_ID = config('TENCENT_SECRET_ID', default='')
+TENCENT_SECRET_KEY = config('TENCENT_SECRET_KEY', default='')
+TENCENT_LKE_APP_KEY = config('TENCENT_LKE_APP_KEY', default='')
+TENCENT_LKE_REGION = config('TENCENT_LKE_REGION', default='ap-guangzhou')

@@ -470,3 +470,22 @@ class AIModelService:
             logger.error(f"评审测试用例时出错: {e}")
             # 返回一个默认的评审结果
             return f"评审过程中出现错误: {str(e)}\n\n建议：测试用例结构完整，可以使用。"
+
+
+class AgentConfig(models.Model):
+    """智能体配置"""
+    name = models.CharField(max_length=100, verbose_name='智能体名称')
+    description = models.TextField(blank=True, verbose_name='描述')
+    bot_app_key = models.CharField(max_length=200, verbose_name='BotAppKey')
+    is_active = models.BooleanField(default=True, verbose_name='是否启用')
+    created_by = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name='创建者')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'agent_config'
+        verbose_name = '智能体配置'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return self.name

@@ -19,25 +19,26 @@
       <p class="subtitle">一站式智能化测试解决方案</p>
       
       <div class="cards-container">
-        <!-- AI用例生成 -->
+        <!-- AI用例生成 
         <div class="nav-card" @click="handleNavigate('ai')" role="button" tabindex="0">
           <div class="card-icon ai-icon">
             <el-icon><MagicStick /></el-icon>
           </div>
           <h3>AI用例生成</h3>
           <p>智能分析需求，自动生成测试用例</p>
-        </div>
+        </div>-->
 
        
        
-        <!-- 配置中心 -->
+        <!-- 配置中心 
         <div class="nav-card" @click="handleNavigate('config')" role="button" tabindex="0">
           <div class="card-icon config-icon">
             <el-icon><Setting /></el-icon>
           </div>
           <h3>配置中心</h3>
           <p>系统环境、AI模型及通知配置</p>
-        </div>
+        </div>-->
+       
       </div>
     </div>
   </div>

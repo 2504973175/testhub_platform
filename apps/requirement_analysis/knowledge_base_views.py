@@ -281,14 +281,17 @@ def extract_document_text(request, doc_id):
         logger.info(f"开始提取文档 {doc_id} 的文本内容")
         
         from .models import RequirementDocument
-        
+
         document = RequirementDocument.objects.get(id=doc_id)
-        
-        # 这里简化处理，实际应该调用文档解析服务
-        # 暂时返回一个示例文本
-        extracted_text = f"这是文档 '{document.title}' 的示例提取内容。实际应该调用文档解析服务来提取真实内容。"
-        
-        logger.info(f"文档文本提取成功，长度: {len(extracted_text)}")
+
+        from .services import DocumentProcessor
+        extracted_text = DocumentProcessor.extract_text(document)
+        if extracted_text:
+            document.extracted_text = extracted_text
+            document.status = "analyzed"
+            document.save(update_fields=["extracted_text", "status", "updated_at"])
+
+        logger.info(f"文档文本提取成功，长度: {len(extracted_text)}") 
         
         return JsonResponse({
             "code": 200,
