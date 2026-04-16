@@ -672,7 +672,7 @@ export default {
       for (let line of lines) {
         if (line.includes('|') && !line.includes('--------')) {
           const cells = line.split('|').map(cell => cell.trim()).filter(cell => cell)
-          if (cells.length > 1) {
+          if (cells.length > 1 && !cells.every(c => /^[-:]+$/.test(c))) {
             // 检查第一行是否是表头
             if (isFirstRow) {
               isFirstRow = false
