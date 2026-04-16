@@ -363,6 +363,11 @@ const routes = [
             path: 'prompt-config',
             name: 'ConfigPrompt',
             component: () => import('@/views/requirement-analysis/PromptConfig.vue')
+          },
+          {
+            path: 'tencent-cloud',
+            name: 'TencentCloudConfig',
+            component: () => import('@/views/configuration/TencentCloudConfig.vue')
           }
         ]
       }

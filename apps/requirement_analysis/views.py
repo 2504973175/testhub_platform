@@ -776,3 +776,32 @@ def delete_ai_case(request, id):
 @require_http_methods(["POST"])
 def run_ai_case(request, id):
     return JsonResponse({"code": 200, "message": "请使用 /api/testcase-generation/generate/ 接口"})
+
+
+@login_required
+@require_http_methods(["GET", "POST"])
+def tencent_cloud_config(request):
+    """腾讯云配置读写"""
+    from .models import TencentCloudConfig
+    cfg = TencentCloudConfig.get_config()
+
+    if request.method == "GET":
+        return JsonResponse({"code": 200, "data": {
+            "secret_id": cfg.secret_id,
+            "secret_key": "********" if cfg.secret_key else "",
+            "has_secret_key": bool(cfg.secret_key),
+            "lke_app_key": "********" if cfg.lke_app_key else "",
+            "has_lke_app_key": bool(cfg.lke_app_key),
+            "lke_region": cfg.lke_region,
+            "updated_at": cfg.updated_at.strftime("%Y-%m-%d %H:%M:%S") if cfg.updated_at else None,
+        }})
+
+    data = json.loads(request.body)
+    if "secret_id" in data: cfg.secret_id = data["secret_id"]
+    if "secret_key" in data and data["secret_key"] and "*" not in data["secret_key"]:
+        cfg.secret_key = data["secret_key"]
+    if "lke_app_key" in data and data["lke_app_key"] and "*" not in data["lke_app_key"]:
+        cfg.lke_app_key = data["lke_app_key"]
+    if "lke_region" in data: cfg.lke_region = data["lke_region"]
+    cfg.save()
+    return JsonResponse({"code": 200, "message": "保存成功"})

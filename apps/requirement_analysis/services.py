@@ -37,7 +37,18 @@ class DocumentProcessor:
         from tencentcloud.common import credential
         from tencentcloud.lkeap.v20240522 import lkeap_client, models as lkeap_models
 
-        cred = credential.Credential(settings.TENCENT_SECRET_ID, settings.TENCENT_SECRET_KEY)
+        # 优先读数据库配置，降级到 settings
+        secret_id = settings.TENCENT_SECRET_ID
+        secret_key = settings.TENCENT_SECRET_KEY
+        try:
+            from .models import TencentCloudConfig
+            cfg = TencentCloudConfig.get_config()
+            if cfg.secret_id: secret_id = cfg.secret_id
+            if cfg.secret_key: secret_key = cfg.secret_key
+        except Exception:
+            pass
+
+        cred = credential.Credential(secret_id, secret_key)
         client = lkeap_client.LkeapClient(cred, "ap-beijing")
 
         with open(file_path, "rb") as f:

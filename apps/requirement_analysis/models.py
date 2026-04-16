@@ -489,3 +489,21 @@ class AgentConfig(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class TencentCloudConfig(models.Model):
+    """腾讯云配置（单例）"""
+    secret_id = models.CharField(max_length=200, blank=True, default='', verbose_name='SecretId')
+    secret_key = models.CharField(max_length=200, blank=True, default='', verbose_name='SecretKey')
+    lke_app_key = models.CharField(max_length=200, blank=True, default='', verbose_name='LKE AppKey（用例生成）')
+    lke_region = models.CharField(max_length=50, default='ap-guangzhou', verbose_name='地域')
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'tencent_cloud_config'
+        verbose_name = '腾讯云配置'
+
+    @classmethod
+    def get_config(cls):
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj

@@ -33,6 +33,10 @@
               <el-icon><Folder /></el-icon>
               <span>项目管理</span>
             </el-menu-item>
+            <el-menu-item index="/configuration/tencent-cloud">
+              <el-icon><Setting /></el-icon>
+              <span>腾讯云配置</span>
+            </el-menu-item>
            
           
           </template>
@@ -151,6 +155,10 @@
             <el-menu-item index="/configuration/prompt-config">
               <el-icon><EditPen /></el-icon>
               <span>提示词配置</span>
+            </el-menu-item>
+            <el-menu-item index="/configuration/tencent-cloud">
+              <el-icon><Cpu /></el-icon>
+              <span>腾讯云配置</span>
             </el-menu-item>
             
           </template>
@@ -280,6 +288,7 @@ const breadcrumbTitle = computed(() => {
     // 配置中心
     '/configuration/ai-model': 'AI用例生成模型配置',
     '/configuration/prompt-config': '提示词配置',
+    '/configuration/tencent-cloud': '腾讯云配置',
     '/configuration/ui-env': 'UI环境配置',
     '/configuration/ai-mode': 'AI智能模式配置',
     '/configuration/scheduled-task': '定时任务配置',

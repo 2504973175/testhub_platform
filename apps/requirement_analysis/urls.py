@@ -77,6 +77,7 @@ urlpatterns = [
     path('vector-model-config/', views.get_vector_model_config, name='get_vector_model_config'),
     path('vector-model-config/update/', views.update_vector_model_config, name='update_vector_model_config'),
     path('vector-model-config/test/', views.test_vector_model_connection, name='test_vector_model_connection'),
+    path('tencent-cloud-config/', views.tencent_cloud_config, name='tencent_cloud_config'),
     
     # 文档上传和提取相关
     path('documents/', knowledge_base_views.upload_document_direct, name='upload_document_direct'),
