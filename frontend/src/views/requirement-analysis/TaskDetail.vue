@@ -46,6 +46,24 @@
       </el-collapse>
     </div>
 
+    <!-- 原始用例输出 -->
+    <div v-if="task.final_test_cases" class="requirement-description-card">
+      <el-collapse>
+        <el-collapse-item name="raw_cases">
+          <template #title>
+            <div class="collapse-title">
+              <span class="title-icon">📄</span>
+              <span class="title-text">智能体原始输出</span>
+              <span class="title-hint">（点击展开查看完整内容）</span>
+            </div>
+          </template>
+          <div class="requirement-content">
+            <pre class="requirement-text" style="white-space:pre-wrap;word-break:break-all;font-size:13px">{{ task.final_test_cases }}</pre>
+          </div>
+        </el-collapse-item>
+      </el-collapse>
+    </div>
+
     <!-- Token消耗信息 -->
     <div v-if="task.token_usage" class="token-usage-card">
       <span class="token-icon">🪙</span>
