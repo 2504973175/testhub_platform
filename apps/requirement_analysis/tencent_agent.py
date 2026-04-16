@@ -95,15 +95,8 @@ async def call_lke_agent(content: str, app_key: Optional[str] = None,
     # 优先读数据库配置，降级到 settings
     _app_key = app_key
     if not _app_key:
-        try:
-            from .models import TencentCloudConfig
-            cfg = TencentCloudConfig.get_config()
-            if cfg.lke_app_key:
-                _app_key = cfg.lke_app_key
-        except Exception:
-            pass
-    if not _app_key:
-        _app_key = settings.TENCENT_LKE_APP_KEY
+        from .tencent_config import get_tencent_config
+        _app_key = get_tencent_config()["lke_app_key"]
     if not _app_key:
         raise ValueError("未配置 TENCENT_LKE_APP_KEY")
 
