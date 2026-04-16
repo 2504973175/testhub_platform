@@ -423,7 +423,8 @@ export default {
         const trimmedLine = line.trim()
         if (trimmedLine.includes('|') && !trimmedLine.includes('--------')) {
           const cells = trimmedLine.split('|').map(cell => cell.trim()).filter(cell => cell)
-          if (cells.length > 1) {
+          // 跳过分隔行：所有单元格只含 - 和 :
+          if (cells.length > 1 && !cells.every(c => /^[-:]+$/.test(c))) {
             tableData.push(cells)
             isTableFormat = true
           }
