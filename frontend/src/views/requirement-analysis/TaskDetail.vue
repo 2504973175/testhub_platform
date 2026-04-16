@@ -164,7 +164,7 @@
                 v-model="selectedCases"
                 @change="updateSelectAll">
             </div>
-            <div class="body-cell">{{ testCase.caseId || `TC${String(index + 1).padStart(3, '0')}` }}</div>
+            <div class="body-cell">{{ testCase.caseId || `TC${String((currentPage - 1) * pageSize + index + 1).padStart(3, '0')}` }}</div>
             <div class="body-cell">{{ testCase.scenario }}</div>
             <div class="body-cell text-limit-2">{{ formatTextForList(testCase.precondition) }}</div>
             <div class="body-cell text-limit-2">{{ formatTextForList(testCase.steps) }}</div>
