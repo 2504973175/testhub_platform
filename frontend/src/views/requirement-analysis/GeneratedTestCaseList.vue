@@ -4,6 +4,28 @@
       <h2>AI生成用例记录</h2>
     </div>
 
+    <!-- 统计信息 -->
+    <div class="stats-section" v-if="allStats.total > 0">
+      <div class="stats-card">
+        <div class="stat-item">
+          <span class="stat-number">{{ allStats.total }}</span>
+          <span class="stat-label">任务总数</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-number">{{ allStats.completed }}</span>
+          <span class="stat-label">已完成</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-number">{{ allStats.running }}</span>
+          <span class="stat-label">进行中</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-number">{{ allStats.failed }}</span>
+          <span class="stat-label">失败</span>
+        </div>
+      </div>
+    </div>
+
     <div class="filters-section">
       <div class="filter-card">
         <div class="filter-group">
@@ -31,28 +53,6 @@
             <span v-if="isLoading">🔄 加载中...</span>
             <span v-else>🔄 刷新</span>
           </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- 统计信息 -->
-    <div class="stats-section" v-if="allStats.total > 0">
-      <div class="stats-card">
-        <div class="stat-item">
-          <span class="stat-number">{{ allStats.total }}</span>
-          <span class="stat-label">任务总数</span>
-        </div>
-        <div class="stat-item">
-          <span class="stat-number">{{ allStats.completed }}</span>
-          <span class="stat-label">已完成</span>
-        </div>
-        <div class="stat-item">
-          <span class="stat-number">{{ allStats.running }}</span>
-          <span class="stat-label">进行中</span>
-        </div>
-        <div class="stat-item">
-          <span class="stat-number">{{ allStats.failed }}</span>
-          <span class="stat-label">失败</span>
         </div>
       </div>
     </div>
