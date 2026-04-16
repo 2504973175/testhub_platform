@@ -431,7 +431,7 @@ export default {
           title: title,
           requirement_text: requirementText,
           use_writer_model: true,
-          use_reviewer_model: true
+          use_reviewer_model: false
         }
         
         if (projectId) {
