@@ -46,6 +46,7 @@
       </el-collapse>
     </div>
 
+<<<<<<< HEAD
     <!-- 原始用例输出 -->
     <div v-if="task.final_test_cases" class="requirement-description-card">
       <el-collapse>
@@ -64,6 +65,8 @@
       </el-collapse>
     </div>
 
+=======
+>>>>>>> origin/ragfeature3
     <!-- Token消耗信息 -->
     <div v-if="task.token_usage" class="token-usage-card">
       <span class="token-icon">🪙</span>
@@ -164,7 +167,11 @@
                 v-model="selectedCases"
                 @change="updateSelectAll">
             </div>
+<<<<<<< HEAD
             <div class="body-cell">{{ testCase.caseId || `TC${String((currentPage - 1) * pageSize + index + 1).padStart(3, '0')}` }}</div>
+=======
+            <div class="body-cell">{{ testCase.caseId || `TC${String(index + 1).padStart(3, '0')}` }}</div>
+>>>>>>> origin/ragfeature3
             <div class="body-cell">{{ testCase.scenario }}</div>
             <div class="body-cell text-limit-2">{{ formatTextForList(testCase.precondition) }}</div>
             <div class="body-cell text-limit-2">{{ formatTextForList(testCase.steps) }}</div>
@@ -423,8 +430,12 @@ export default {
         const trimmedLine = line.trim()
         if (trimmedLine.includes('|') && !trimmedLine.includes('--------')) {
           const cells = trimmedLine.split('|').map(cell => cell.trim()).filter(cell => cell)
+<<<<<<< HEAD
           // 跳过分隔行：所有单元格只含 - 和 :
           if (cells.length > 1 && !cells.every(c => /^[-:]+$/.test(c))) {
+=======
+          if (cells.length > 1) {
+>>>>>>> origin/ragfeature3
             tableData.push(cells)
             isTableFormat = true
           }

@@ -37,12 +37,16 @@ class DocumentProcessor:
         from tencentcloud.common import credential
         from tencentcloud.lkeap.v20240522 import lkeap_client, models as lkeap_models
 
+<<<<<<< HEAD
         from .tencent_config import get_tencent_config
         _cfg = get_tencent_config()
         secret_id = _cfg["secret_id"]
         secret_key = _cfg["secret_key"]
 
         cred = credential.Credential(secret_id, secret_key)
+=======
+        cred = credential.Credential(settings.TENCENT_SECRET_ID, settings.TENCENT_SECRET_KEY)
+>>>>>>> origin/ragfeature3
         client = lkeap_client.LkeapClient(cred, "ap-beijing")
 
         with open(file_path, "rb") as f:

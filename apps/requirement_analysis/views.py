@@ -776,6 +776,7 @@ def delete_ai_case(request, id):
 @require_http_methods(["POST"])
 def run_ai_case(request, id):
     return JsonResponse({"code": 200, "message": "请使用 /api/testcase-generation/generate/ 接口"})
+<<<<<<< HEAD
 
 
 @login_required
@@ -805,3 +806,5 @@ def tencent_cloud_config(request):
     if "lke_region" in data: cfg.lke_region = data["lke_region"]
     cfg.save()
     return JsonResponse({"code": 200, "message": "保存成功"})
+=======
+>>>>>>> origin/ragfeature3

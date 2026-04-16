@@ -431,7 +431,11 @@ export default {
           title: title,
           requirement_text: requirementText,
           use_writer_model: true,
+<<<<<<< HEAD
           use_reviewer_model: false
+=======
+          use_reviewer_model: true
+>>>>>>> origin/ragfeature3
         }
         
         if (projectId) {

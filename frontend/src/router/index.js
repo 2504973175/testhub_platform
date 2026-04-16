@@ -363,11 +363,14 @@ const routes = [
             path: 'prompt-config',
             name: 'ConfigPrompt',
             component: () => import('@/views/requirement-analysis/PromptConfig.vue')
+<<<<<<< HEAD
           },
           {
             path: 'tencent-cloud',
             name: 'TencentCloudConfig',
             component: () => import('@/views/configuration/TencentCloudConfig.vue')
+=======
+>>>>>>> origin/ragfeature3
           }
         ]
       }

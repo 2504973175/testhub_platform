@@ -34,7 +34,10 @@
               <span>项目管理</span>
             </el-menu-item>
            
+<<<<<<< HEAD
            
+=======
+>>>>>>> origin/ragfeature3
           
           </template>
 
@@ -145,10 +148,20 @@
 
           <!-- 配置中心模块菜单 -->
           <template v-else-if="currentModule === 'configuration'">
+<<<<<<< HEAD
           
             <el-menu-item index="/configuration/tencent-cloud">
               <el-icon><Cpu /></el-icon>
               <span>腾讯云配置</span>
+=======
+            <el-menu-item index="/configuration/ai-model">
+              <el-icon><Cpu /></el-icon>
+              <span>AI用例生成模型配置</span>
+            </el-menu-item>
+            <el-menu-item index="/configuration/prompt-config">
+              <el-icon><EditPen /></el-icon>
+              <span>提示词配置</span>
+>>>>>>> origin/ragfeature3
             </el-menu-item>
             
           </template>
@@ -278,7 +291,10 @@ const breadcrumbTitle = computed(() => {
     // 配置中心
     '/configuration/ai-model': 'AI用例生成模型配置',
     '/configuration/prompt-config': '提示词配置',
+<<<<<<< HEAD
     '/configuration/tencent-cloud': '腾讯云配置',
+=======
+>>>>>>> origin/ragfeature3
     '/configuration/ui-env': 'UI环境配置',
     '/configuration/ai-mode': 'AI智能模式配置',
     '/configuration/scheduled-task': '定时任务配置',

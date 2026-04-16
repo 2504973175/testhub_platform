@@ -489,6 +489,7 @@ class AgentConfig(models.Model):
 
     def __str__(self):
         return self.name
+<<<<<<< HEAD
 
 
 class TencentCloudConfig(models.Model):
@@ -507,3 +508,5 @@ class TencentCloudConfig(models.Model):
     def get_config(cls):
         obj, _ = cls.objects.get_or_create(pk=1)
         return obj
+=======
+>>>>>>> origin/ragfeature3

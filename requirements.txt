@@ -74,9 +74,12 @@ djangorestframework-simplejwt==5.5.1
 
 # 腾讯云智能体
 tencentcloud-sdk-python>=3.0.0
+<<<<<<< HEAD
 
 
 PyMuPDF==1.24.0
 python-docx==1.1.0
 markdown==3.6
 scikit-learn==1.4.1.post1
+=======
+>>>>>>> origin/ragfeature3

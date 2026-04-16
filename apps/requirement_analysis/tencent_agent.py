@@ -92,11 +92,15 @@ async def call_lke_agent(content: str, app_key: Optional[str] = None,
     """
     import httpx
 
+<<<<<<< HEAD
     # 优先读数据库配置，降级到 settings
     _app_key = app_key
     if not _app_key:
         from .tencent_config import get_tencent_config
         _app_key = get_tencent_config()["lke_app_key"]
+=======
+    _app_key = app_key or settings.TENCENT_LKE_APP_KEY
+>>>>>>> origin/ragfeature3
     if not _app_key:
         raise ValueError("未配置 TENCENT_LKE_APP_KEY")
 

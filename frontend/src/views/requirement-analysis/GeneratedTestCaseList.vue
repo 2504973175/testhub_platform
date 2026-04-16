@@ -4,6 +4,7 @@
       <h2>AI生成用例记录</h2>
     </div>
 
+<<<<<<< HEAD
     <!-- 统计信息 -->
     <div class="stats-section" v-if="allStats.total > 0">
       <div class="stats-card">
@@ -26,6 +27,8 @@
       </div>
     </div>
 
+=======
+>>>>>>> origin/ragfeature3
     <div class="filters-section">
       <div class="filter-card">
         <div class="filter-group">
@@ -57,6 +60,31 @@
       </div>
     </div>
 
+<<<<<<< HEAD
+=======
+    <!-- 统计信息 -->
+    <div class="stats-section" v-if="allStats.total > 0">
+      <div class="stats-card">
+        <div class="stat-item">
+          <span class="stat-number">{{ allStats.total }}</span>
+          <span class="stat-label">任务总数</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-number">{{ allStats.completed }}</span>
+          <span class="stat-label">已完成</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-number">{{ allStats.running }}</span>
+          <span class="stat-label">进行中</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-number">{{ allStats.failed }}</span>
+          <span class="stat-label">失败</span>
+        </div>
+      </div>
+    </div>
+
+>>>>>>> origin/ragfeature3
     <!-- AI任务列表 -->
     <div class="testcases-section">
       <div v-if="isLoading" class="loading-state">
@@ -672,7 +700,11 @@ export default {
       for (let line of lines) {
         if (line.includes('|') && !line.includes('--------')) {
           const cells = line.split('|').map(cell => cell.trim()).filter(cell => cell)
+<<<<<<< HEAD
           if (cells.length > 1 && !cells.every(c => /^[-:]+$/.test(c))) {
+=======
+          if (cells.length > 1) {
+>>>>>>> origin/ragfeature3
             // 检查第一行是否是表头
             if (isFirstRow) {
               isFirstRow = false
