@@ -33,10 +33,7 @@
               <el-icon><Folder /></el-icon>
               <span>项目管理</span>
             </el-menu-item>
-            <el-menu-item index="/configuration/tencent-cloud">
-              <el-icon><Setting /></el-icon>
-              <span>腾讯云配置</span>
-            </el-menu-item>
+           
            
           
           </template>
@@ -148,14 +145,7 @@
 
           <!-- 配置中心模块菜单 -->
           <template v-else-if="currentModule === 'configuration'">
-            <el-menu-item index="/configuration/ai-model">
-              <el-icon><Cpu /></el-icon>
-              <span>AI用例生成模型配置</span>
-            </el-menu-item>
-            <el-menu-item index="/configuration/prompt-config">
-              <el-icon><EditPen /></el-icon>
-              <span>提示词配置</span>
-            </el-menu-item>
+          
             <el-menu-item index="/configuration/tencent-cloud">
               <el-icon><Cpu /></el-icon>
               <span>腾讯云配置</span>

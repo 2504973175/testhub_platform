@@ -1,83 +1,6 @@
 <template>
   <div class="login-container">
-    <!-- 左侧展示区域 -->
-    <div class="showcase-section">
-      <div class="showcase-content">
-        <!-- Logo和标题 -->
-        <div class="brand-header">
-          <div class="logo-wrapper">
-            <div class="logo-icon">
-              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                <path d="M2 17L12 22L22 17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                <path d="M2 12L12 17L22 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
-            </div>
-            <h1 class="brand-title">NeoTest</h1>
-          </div>
-          <p class="brand-subtitle"></p>
-        </div>
-
-        <!-- 特性展示 -->
-        <div class="features-grid">
-          <div class="feature-card" v-for="(feature, index) in features" :key="index">
-            <div class="feature-icon" :style="{ backgroundColor: feature.color }">
-              <component :is="feature.icon" />
-            </div>
-            <div class="feature-content">
-              <h3>{{ feature.title }}</h3>
-              <p>{{ feature.description }}</p>
-            </div>
-          </div>
-        </div>
-
-        <!-- AI能力展示 -->
-        <div class="ai-capabilities">
-          <div class="capability-badge">
-            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M13 2L3 14H12L11 22L21 10H12L13 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-            <span>AI用例生成</span>
-          </div>
-          <div class="capability-badge">
-            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
-              <path d="M12 6V12L16 14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            </svg>
-            <span>AI智能测试</span>
-          </div>
-          <div class="capability-badge">
-            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" stroke-width="2"/>
-              <path d="M3 9H21" stroke="currentColor" stroke-width="2"/>
-              <path d="M9 21V9" stroke="currentColor" stroke-width="2"/>
-            </svg>
-            <span>自动化执行</span>
-          </div>
-          <div class="capability-badge">
-            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
-              <path d="M12 6V12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-              <path d="M12 12L16 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-              <path d="M12 12L8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-              <path d="M12 12L16 16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-              <path d="M12 12L8 16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            </svg>
-            <span>定时任务</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- 装饰元素 -->
-      <div class="floating-shapes">
-        <div class="shape shape-1"></div>
-        <div class="shape shape-2"></div>
-        <div class="shape shape-3"></div>
-        <div class="shape shape-4"></div>
-      </div>
-    </div>
-
-    <!-- 右侧登录表单 -->
+    <!-- 登录表单 -->
     <div class="login-section">
       <div class="login-form-wrapper">
         <div class="form-header">
@@ -133,10 +56,7 @@
           </div>
         </el-form>
 
-        <!-- 底部信息 -->
-        <div class="bottom-info">
-          <p>© 2024 TestHub. All rights reserved.</p>
-        </div>
+       
       </div>
     </div>
   </div>
@@ -235,212 +155,22 @@ const handleLogin = async () => {
 .login-container {
   height: 100vh;
   display: flex;
-  background: #f5f7fa;
+  background: #f5f7fa url('@/assets/login-bg.png') center center / cover no-repeat;
   overflow: hidden;
-}
-
-/* 左侧展示区域 */
-.showcase-section {
-  flex: 1;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  position: relative;
-  display: flex;
   align-items: center;
   justify-content: center;
-  overflow: hidden;
-  padding: 60px;
-
-  .showcase-content {
-    position: relative;
-    z-index: 2;
-    width: 100%;
-    max-width: 600px;
-    color: white;
-  }
-
-  .brand-header {
-    margin-bottom: 60px;
-    animation: fadeInDown 0.8s ease-out;
-
-    .logo-wrapper {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      margin-bottom: 16px;
-
-      .logo-icon {
-        width: 60px;
-        height: 60px;
-        background: rgba(255, 255, 255, 0.2);
-        border-radius: 12px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        backdrop-filter: blur(10px);
-
-        svg {
-          width: 32px;
-          height: 32px;
-          color: white;
-        }
-      }
-
-      .brand-title {
-        font-size: 42px;
-        font-weight: 700;
-        margin: 0;
-        color: white;
-        letter-spacing: -1px;
-      }
-    }
-
-    .brand-subtitle {
-      font-size: 18px;
-      opacity: 0.9;
-      margin: 0;
-      font-weight: 300;
-      letter-spacing: 1px;
-    }
-  }
-
-  .features-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 20px;
-    margin-bottom: 60px;
-
-    .feature-card {
-      background: rgba(255, 255, 255, 0.1);
-      backdrop-filter: blur(10px);
-      border-radius: 16px;
-      padding: 24px;
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      transition: all 0.3s ease;
-      animation: fadeInUp 0.8s ease-out;
-      animation-delay: calc(var(--index) * 0.1s);
-
-      &:hover {
-        transform: translateY(-5px);
-        background: rgba(255, 255, 255, 0.15);
-        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
-      }
-
-      .feature-icon {
-        width: 48px;
-        height: 48px;
-        border-radius: 12px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        margin-bottom: 16px;
-
-        :deep(svg) {
-          width: 24px;
-          height: 24px;
-          color: white;
-        }
-      }
-
-      .feature-content {
-        h3 {
-          font-size: 16px;
-          font-weight: 600;
-          margin: 0 0 8px 0;
-          color: white;
-        }
-
-        p {
-          font-size: 13px;
-          margin: 0;
-          opacity: 0.8;
-          line-height: 1.5;
-        }
-      }
-    }
-  }
-
-  .ai-capabilities {
-    display: flex;
-    gap: 12px;
-    flex-wrap: wrap;
-    animation: fadeInUp 1s ease-out;
-
-    .capability-badge {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      background: rgba(255, 255, 255, 0.15);
-      backdrop-filter: blur(10px);
-      padding: 10px 20px;
-      border-radius: 50px;
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      font-size: 14px;
-      font-weight: 500;
-
-      svg {
-        width: 18px;
-        height: 18px;
-      }
-    }
-  }
-
-  .floating-shapes {
-    position: absolute;
-    width: 100%;
-    height: 100%;
-    top: 0;
-    left: 0;
-    z-index: 1;
-
-    .shape {
-      position: absolute;
-      border-radius: 50%;
-      background: rgba(255, 255, 255, 0.1);
-      animation: float 20s infinite;
-
-      &.shape-1 {
-        width: 300px;
-        height: 300px;
-        top: -100px;
-        left: -100px;
-        animation-delay: 0s;
-      }
-
-      &.shape-2 {
-        width: 200px;
-        height: 200px;
-        bottom: -50px;
-        right: -50px;
-        animation-delay: 5s;
-      }
-
-      &.shape-3 {
-        width: 150px;
-        height: 150px;
-        top: 50%;
-        right: 20%;
-        animation-delay: 10s;
-      }
-
-      &.shape-4 {
-        width: 100px;
-        height: 100px;
-        bottom: 30%;
-        left: 30%;
-        animation-delay: 15s;
-      }
-    }
-  }
 }
 
 /* 右侧登录表单 */
 .login-section {
-  width: 500px;
+  width: 460px;
   display: flex;
   align-items: center;
   justify-content: center;
   background: white;
   padding: 60px;
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0,0,0,.08);
   position: relative;
 
   .login-form-wrapper {
